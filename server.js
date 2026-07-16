@@ -8,7 +8,6 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
-const PORT = process.env.PORT || 3000; // Railway otomatis kasih port, jangan pake 8080 manual!
 
 let sock = null;
 
@@ -20,7 +19,7 @@ app.post('/api/pair', async (req, res) => {
         }
 
         const clean = phone.replace(/\D/g, '');
-        console.log('📱 Pairing untuk:', clean);
+        console.log('📱 Pairing:', clean);
 
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
@@ -265,8 +264,22 @@ async function startBot() {
     }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
+// ==========================================
+// PAKAI PORT 0 (RANDOM) - PASTI GAK KEPAKE!
+// ==========================================
+const server = app.listen(0, '0.0.0.0', () => {
+    const actualPort = server.address().port;
+    console.log('🌐 Server running on port', actualPort);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
+});
+
+// ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log('⚠️ Port sibuk, coba port lain...');
+        const newServer = app.listen(0, '0.0.0.0', () => {
+            console.log('🌐 Server running on port', newServer.address().port);
+        });
+    }
 });
