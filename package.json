@@ -1,0 +1,14 @@
+{
+  "name": "botwa",
+  "version": "4.0.0",
+  "description": "WhatsApp Bot - Pairing Code (Railway Ready)",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.5.0",
+    "@hapi/boom": "^10.0.1",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
