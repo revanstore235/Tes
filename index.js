@@ -25,14 +25,14 @@ async function startBot() {
         console.log(`🤖 ${setting.botName} v${setting.version}`);
         console.log(`📦 Baileys v${version.join('.')}`);
         console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}`);
+        console.log(`📱 Bot Number: ${setting.botNumber.split('@')[0]}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
-        // ✅ FIX: Ganti Browsers.windows dengan Browsers.macOS
         const sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: Browsers.macOS('Desktop'), // ✅ FIXED!
+            browser: Browsers.macOS('Desktop'),
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
@@ -46,21 +46,26 @@ async function startBot() {
         if (!sock.authState.creds.registered) {
             console.log('📱 Meminta Pairing Code...\n');
             try {
-                const phoneNumber = setting.ownerNumber.split('@')[0];
+                const phoneNumber = setting.botNumber.split('@')[0];
                 console.log(`📞 Nomor Bot: ${phoneNumber}`);
+                console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}\n`);
+                
                 const code = await sock.requestPairingCode(phoneNumber);
+                
                 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log(`✅ PAIRING CODE: *${code}*`);
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log('\n📱 CARA PAIRING:');
-                console.log('1️⃣ Buka WhatsApp di HP');
+                console.log(`1️⃣ Buka WhatsApp di HP NOMOR BOT: ${phoneNumber}`);
                 console.log('2️⃣ Tap ⋮ (3 titik) > Perangkat Tertaut');
                 console.log('3️⃣ Tap "Tautkan Perangkat"');
                 console.log('4️⃣ Pilih "Tautkan dengan Nomor Telepon"');
                 console.log(`5️⃣ Masukkan kode: *${code}*`);
                 console.log('\n⏳ Tunggu koneksi...\n');
+                
             } catch (pairingError) {
                 console.error('❌ Gagal mendapatkan pairing code:', pairingError.message);
+                console.log('🔄 Coba lagi dalam 5 detik...');
                 await sleep(5000);
                 process.exit(1);
             }
@@ -87,6 +92,7 @@ async function startBot() {
                     if (fs.existsSync(setting.sessionPath)) {
                         fs.rmSync(setting.sessionPath, { recursive: true, force: true });
                     }
+                    console.log('🔄 Restart bot...');
                     await sleep(3000);
                     process.exit(1);
                 } else {
