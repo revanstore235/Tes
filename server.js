@@ -31,22 +31,43 @@ app.post('/api/pair', async (req, res) => {
 
         console.log('📦 Baileys v' + version.join('.'));
 
+        // ============================================================
+        // KONFIGURASI PAIRING CODE - WAJIB!
+        // ============================================================
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['Baileys', 'Chrome', '120.0.0.0'],
+            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            mobile: true, // WAJIB!
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
+            shouldSyncHistoryMessage: () => false,
+            // ===== TAMBAHAN BIAR PAIRING JALAN! =====
+            patchMessageBeforeSending: (msg) => msg,
+            getMessage: async (key) => null,
+            generateHighQualityLinkPreview: false
         });
 
         sock.ev.on('creds.update', saveCreds);
-        await new Promise(r => setTimeout(r, 3000));
 
+        // ===== TUNGGU SAMPAI SOCKET SIAP =====
+        await new Promise(r => setTimeout(r, 5000));
+
+        // ===== CEK APAKAH UDAH TERDAFTAR =====
+        if (sock.authState.creds.registered) {
+            console.log('✅ Bot sudah terdaftar!');
+            return res.json({
+                success: true,
+                message: 'Bot sudah terhubung!',
+                botNumber: sock.authState.creds.me?.id || 'Unknown'
+            });
+        }
+
+        // ===== REQUEST PAIRING CODE =====
         const code = await sock.requestPairingCode(clean);
         console.log('✅ PAIRING CODE:', code);
 
@@ -102,13 +123,17 @@ async function startBot() {
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['Baileys', 'Chrome', '120.0.0.0'],
+            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            mobile: true,
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
+            shouldSyncHistoryMessage: () => false,
+            patchMessageBeforeSending: (msg) => msg,
+            getMessage: async (key) => null,
+            generateHighQualityLinkPreview: false
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -265,11 +290,11 @@ async function startBot() {
 }
 
 // ==========================================
-// PAKAI PORT 0 (RANDOM) - PASTI GAK KEPAKE!
+// PAKAI PORT DARI RAILWAY, BUKAN RANDOM!
 // ==========================================
-const server = app.listen(0, '0.0.0.0', () => {
-    const actualPort = server.address().port;
-    console.log('🌐 Server running on port', actualPort);
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log('🌐 Server running on port', PORT);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
 });
@@ -277,7 +302,7 @@ const server = app.listen(0, '0.0.0.0', () => {
 // ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-        console.log('⚠️ Port sibuk, coba port lain...');
+        console.log('⚠️ Port', PORT, 'sibuk, coba port lain...');
         const newServer = app.listen(0, '0.0.0.0', () => {
             console.log('🌐 Server running on port', newServer.address().port);
         });
