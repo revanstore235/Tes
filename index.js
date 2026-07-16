@@ -27,11 +27,12 @@ async function startBot() {
         console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+        // ✅ FIX: Ganti Browsers.windows dengan Browsers.macOS
         const sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: Browsers.windows('Desktop'),
+            browser: Browsers.macOS('Desktop'), // ✅ FIXED!
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
