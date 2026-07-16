@@ -4,7 +4,7 @@ const setting = {
     prefix: '!',
     ownerNumber: '6281284406156@s.whatsapp.net',
     ownerName: 'Developer',
-    botNumber: ' 6283180391763@s.whatsapp.net', // ⚠️ GANTI!
+    botNumber: '6283180391763@s.whatsapp.net', // ⚠️ GANTI!
     sessionPath: './session',
     reconnectDelay: 5000,
     cooldowns: {
