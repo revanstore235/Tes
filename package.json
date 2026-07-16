@@ -1,17 +1,14 @@
 {
   "name": "wa-bot",
   "version": "1.0.0",
-  "description": "WhatsApp Bot - Clean & Stable",
+  "description": "WhatsApp Bot - Railway",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "@whiskeysockets/baileys": "6.6.0",
+    "@whiskeysockets/baileys": "6.7.9",
     "@hapi/boom": "^10.0.1"
-  },
-  "overrides": {
-    "sharp": "0.30.5"
   }
 }
