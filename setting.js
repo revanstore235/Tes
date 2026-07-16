@@ -2,9 +2,15 @@ const setting = {
     botName: 'KickBot',
     version: '4.0.0',
     prefix: '!',
-    ownerNumber: '6281284406155@s.whatsapp.net',
-    botNumber: '6283180391763',
+    
+    // ===== OWNER = NOMOR LU YANG PUNYA HP =====
+    ownerNumber: '6281284406156@s.whatsapp.net', // NOMOR LU!
     ownerName: 'Developer',
+    
+    // ===== BOT = NOMOR YANG MAU JADI BOT (HARUS BEDA!) =====
+    // ⚠️ GANTI DENGAN NOMOR LAIN YANG MAU JADI BOT!
+    botNumber: '6283180391763@s.whatsapp.net', // NOMOR BOT!
+    
     sessionPath: './session',
     reconnectDelay: 5000,
     cooldowns: {
