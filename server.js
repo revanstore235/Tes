@@ -317,8 +317,10 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
-// ===== FIX: PAKAI PORT DARI RAILWAY! =====
-const PORT = process.env.PORT || 3000;
+// ==========================================
+// FIX: PAKAI PORT 5050!
+// ==========================================
+const PORT = 5050;
 const server = app.listen(PORT, '0.0.0.0', function() {
     console.log('🌐 SERVER STARTED!');
     console.log('📡 Port: ' + PORT);
