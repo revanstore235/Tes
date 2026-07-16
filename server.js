@@ -5,7 +5,7 @@ const fs = require('fs');
 
 const app = express();
 app.use(express.json());
-app.use(express.static('public')); // ← SERVE index.html dari folder public!
+app.use(express.static('public'));
 
 const OWNER = '6281284406156';
 const PORT = process.env.PORT || 3000;
@@ -20,31 +20,45 @@ app.post('/api/pair', async (req, res) => {
         if (!phone) return res.status(400).json({ error: 'Nomor HP wajib!' });
 
         const clean = phone.replace(/\D/g, '');
-        console.log('📱 Pairing:', clean);
+        console.log('📱 Pairing untuk:', clean);
 
-        if (!sock) {
-            const { state, saveCreds } = await useMultiFileAuthState('./session');
-            const { version } = await fetchLatestBaileysVersion();
-            sock = makeWASocket({
-                version,
-                auth: state,
-                printQRInTerminal: false,
-                browser: ['Chrome', 'Windows', '120.0.0.0'],
-                connectTimeoutMs: 30000,
-                keepAliveIntervalMs: 10000,
-                defaultQueryTimeoutMs: 30000,
-                markOnlineOnConnect: true,
-                ws: {
-                    agent: null,
-                    timeout: 30000
-                }
-            });
-            sock.ev.on('creds.update', saveCreds);
-            await new Promise(r => setTimeout(r, 3000));
+        // ===== PASTIKAN SESSION BERSIH =====
+        if (fs.existsSync('./session')) {
+            fs.rmSync('./session', { recursive: true, force: true });
         }
+        fs.mkdirSync('./session');
 
+        const { state, saveCreds } = await useMultiFileAuthState('./session');
+        const { version } = await fetchLatestBaileysVersion();
+
+        console.log('📦 Baileys v' + version.join('.'));
+
+        sock = makeWASocket({
+            version,
+            auth: state,
+            printQRInTerminal: false,
+            // ===== PAKAI BROWSER MOBILE! =====
+            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            // ===== MOBILE: TRUE UNTUK PAIRING CODE =====
+            mobile: true,
+            connectTimeoutMs: 30000,
+            keepAliveIntervalMs: 10000,
+            defaultQueryTimeoutMs: 30000,
+            markOnlineOnConnect: true,
+            syncFullHistory: false,
+            shouldSyncHistoryMessage: () => false
+        });
+
+        sock.ev.on('creds.update', saveCreds);
+
+        // ===== TUNGGU SOCKET SIAP =====
+        await new Promise(r => setTimeout(r, 3000));
+
+        // ===== REQUEST PAIRING CODE =====
         const code = await sock.requestPairingCode(clean);
+        pairingCode = code;
         console.log('✅ PAIRING CODE:', code);
+
         res.json({ success: true, code });
 
     } catch (e) {
@@ -76,15 +90,14 @@ async function startBot() {
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['Chrome', 'Windows', '120.0.0.0'],
+            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            mobile: true,
             connectTimeoutMs: 30000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 30000,
             markOnlineOnConnect: true,
-            ws: {
-                agent: null,
-                timeout: 30000
-            }
+            syncFullHistory: false,
+            shouldSyncHistoryMessage: () => false
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -102,9 +115,7 @@ async function startBot() {
             }
         });
 
-        // ==========================================
-        // MESSAGE HANDLER (FITUR LENGKAP!)
-        // ==========================================
+        // ===== MESSAGE HANDLER =====
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
@@ -126,6 +137,7 @@ async function startBot() {
 
                 console.log('📨 [', command, ']');
 
+                // ===== COMMANDS =====
                 if (command === 'ping') {
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
                 } else if (command === 'info') {
