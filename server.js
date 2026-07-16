@@ -9,14 +9,10 @@ const {
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// ==========================================
-// MIDDLEWARE
-// ==========================================
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
@@ -33,7 +29,7 @@ let botStatus = 'disconnected';
 let botNumber = null;
 
 // ==========================================
-// START BOT
+// START BOT (FIXED!)
 // ==========================================
 async function startBot() {
     try {
@@ -44,19 +40,18 @@ async function startBot() {
         }
         fs.mkdirSync(SESSION_PATH, { recursive: true });
 
-        // Load auth state
         const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
         const { version } = await fetchLatestBaileysVersion();
 
         console.log(`📦 Baileys v${version.join('.')}`);
 
-        // Buat socket
+        // ===== FIX: HAPUS mobile: true! =====
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['Chrome (Android)', 'Android', '10.0'],
-            mobile: true,
+            browser: ['KickBot', 'Chrome', '120.0.0.0'], // PAKAI INI!
+            // mobile: true, // ← HAPUS INI!
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 15000,
             defaultQueryTimeoutMs: 60000,
@@ -111,7 +106,6 @@ async function startBot() {
             }
         });
 
-        // Save credentials
         sock.ev.on('creds.update', saveCreds);
 
         // ==========================================
@@ -122,16 +116,11 @@ async function startBot() {
                 const msg = messages[0];
                 if (!msg.message || msg.key.fromMe) return;
 
-                // Ambil teks pesan
                 let text = '';
                 if (msg.message.conversation) {
                     text = msg.message.conversation;
                 } else if (msg.message.extendedTextMessage) {
                     text = msg.message.extendedTextMessage.text || '';
-                } else if (msg.message.imageMessage) {
-                    text = msg.message.imageMessage.caption || '';
-                } else if (msg.message.videoMessage) {
-                    text = msg.message.videoMessage.caption || '';
                 }
 
                 if (!text.startsWith('!')) return;
@@ -143,7 +132,6 @@ async function startBot() {
                 const sender = msg.key.participant || msg.key.remoteJid;
                 console.log(`📨 [${command}] dari ${sender}`);
 
-                // ===== COMMANDS =====
                 if (command === 'ping') {
                     const start = Date.now();
                     await sock.sendMessage(msg.key.remoteJid, { text: '🏓 Pong!' });
@@ -215,7 +203,6 @@ app.post('/api/pair', async (req, res) => {
         const cleanNumber = phoneNumber.replace(/\D/g, '');
         console.log(`📱 Request pairing untuk: ${cleanNumber}`);
 
-        // Pastikan bot jalan
         if (!sock) {
             await startBot();
             await new Promise(resolve => setTimeout(resolve, 5000));
@@ -228,7 +215,6 @@ app.post('/api/pair', async (req, res) => {
             });
         }
 
-        // Cek apakah udah terdaftar
         if (!sock.authState.creds.registered) {
             const code = await sock.requestPairingCode(cleanNumber);
             pairingCode = code;
@@ -314,7 +300,6 @@ const server = app.listen(PORT, '0.0.0.0', () => {
     startBot();
 });
 
-// Error handling port
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
         console.log(`⚠️ Port ${PORT} sibuk, coba port lain...`);
@@ -326,9 +311,6 @@ server.on('error', (err) => {
     }
 });
 
-// ==========================================
-// GRACEFUL SHUTDOWN
-// ==========================================
 process.on('SIGINT', () => {
     console.log('\n👋 Server dimatikan...');
     process.exit(0);
