@@ -7,30 +7,16 @@ const {
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
-const QRCode = require('qrcode-terminal');
 const { setting } = require('./setting.js');
 const { hidetag, kick, info, ping } = require('./handler.js');
-const pino = require('pino');
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const logger = pino({
-    level: 'info',
-    transport: {
-        target: 'pino-pretty',
-        options: {
-            colorize: true,
-            translateTime: 'SYS:standard',
-            ignore: 'pid,hostname'
-        }
-    }
-});
 
 async function startBot() {
     try {
         if (fs.existsSync(setting.sessionPath)) {
             fs.rmSync(setting.sessionPath, { recursive: true, force: true });
-            logger.info('🗑️ Session lama dihapus');
+            console.log('🗑️ Session lama dihapus');
         }
         fs.mkdirSync(setting.sessionPath, { recursive: true });
 
@@ -46,19 +32,30 @@ async function startBot() {
         console.log(`📦 Baileys: v${version.join('.')}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+        // ===== SOCKET DENGAN MOBILE IDENTITY (GAK ADA LOG BERANTAKAN!) =====
         const sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
+            
+            // ✅ PAKAI MOBILE IDENTITY! BUKAN DESKTOP!
             browser: ['Chrome (Android)', 'Android', '10.0'],
+            
+            // ✅ MOBILE: TRUE!
             mobile: true,
+            
+            // ✅ MATIKIN LOG YANG BERANTAKAN!
+            logger: {
+                level: 'silent',
+                child: () => ({ trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {} })
+            },
+            
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
             shouldSyncHistoryMessage: () => false,
             defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 60000,
-            logger: logger
+            keepAliveIntervalMs: 60000
         });
 
         await sleep(3000);
@@ -93,16 +90,9 @@ async function startBot() {
                 
             } catch (pairingError) {
                 console.error('❌ Gagal mendapatkan pairing code:', pairingError.message);
-                
-                // ===== FALLBACK: QR CODE! =====
-                console.log('\n🔄 FALLBACK: Mencoba QR Code...\n');
-                sock.ev.on('connection.update', (update) => {
-                    if (update.qr) {
-                        console.log('📱 SCAN QR CODE INI:');
-                        QRCode.generate(update.qr, { small: true });
-                        console.log('\n');
-                    }
-                });
+                console.log('🔄 Coba lagi dalam 5 detik...');
+                await sleep(5000);
+                process.exit(1);
             }
         } else {
             console.log('✅ Session ditemukan! Menghubungkan...\n');
@@ -110,8 +100,6 @@ async function startBot() {
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
-
-            console.log(`📡 Status: ${connection}`);
 
             if (connection === 'open') {
                 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
