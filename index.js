@@ -14,8 +14,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function startBot() {
     try {
+        // HAPUS SESSION LAMA
         if (fs.existsSync(setting.sessionPath)) {
             fs.rmSync(setting.sessionPath, { recursive: true, force: true });
+            console.log('🗑️ Session lama dihapus');
         }
         fs.mkdirSync(setting.sessionPath, { recursive: true });
 
@@ -26,9 +28,9 @@ async function startBot() {
         console.log(`🤖 ${setting.botName} v${setting.version}`);
         console.log(`📦 Baileys v${version.join('.')}`);
         console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}`);
-        console.log(`📱 Bot Number: ${setting.botNumber.split('@')[0]}`);
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+        // ===== BIKIN SOCKET DENGAN BENER =====
         const sock = makeWASocket({
             version,
             auth: state,
@@ -42,28 +44,42 @@ async function startBot() {
             keepAliveIntervalMs: 60000
         });
 
-        await sleep(3000);
+        // TUNGGU SOCKET SIAP
+        await sleep(2000);
 
+        // ===== PAIRING CODE =====
         if (!sock.authState.creds.registered) {
             console.log('📱 Meminta Pairing Code...\n');
+            
+            // CEK APAKAH REQUEST PAIRING CODE AVAILABLE
+            if (typeof sock.requestPairingCode !== 'function') {
+                console.error('❌ requestPairingCode tidak tersedia!');
+                console.log('🔄 Restart bot...');
+                await sleep(3000);
+                process.exit(1);
+            }
+
             try {
-                // ===== PAKAI NOMOR BOT, BUKAN OWNER! =====
-                const phoneNumber = setting.botNumber.split('@')[0];
-                console.log(`📞 Nomor Bot: ${phoneNumber}`);
-                console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}\n`);
+                const phoneNumber = setting.ownerNumber.split('@')[0];
+                console.log(`📞 Nomor: ${phoneNumber}`);
+                console.log('⏳ Mengirim request pairing code...\n');
                 
                 const code = await sock.requestPairingCode(phoneNumber);
                 
-                console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log(`✅ PAIRING CODE: *${code}*`);
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log('\n📱 CARA PAIRING:');
-                console.log(`1️⃣ Buka WhatsApp di HP NOMOR BOT: ${phoneNumber}`);
-                console.log('2️⃣ Tap ⋮ (3 titik) > Perangkat Tertaut');
-                console.log('3️⃣ Tap "Tautkan Perangkat"');
-                console.log('4️⃣ Pilih "Tautkan dengan Nomor Telepon"');
-                console.log(`5️⃣ Masukkan kode: *${code}*`);
-                console.log('\n⏳ Tunggu koneksi...\n');
+                if (code && code.length > 0) {
+                    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log(`✅ PAIRING CODE: *${code}*`);
+                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('\n📱 CARA PAIRING:');
+                    console.log(`1️⃣ Buka WhatsApp di HP NOMOR: ${phoneNumber}`);
+                    console.log('2️⃣ Tap ⋮ (3 titik) > Perangkat Tertaut');
+                    console.log('3️⃣ Tap "Tautkan Perangkat"');
+                    console.log('4️⃣ Pilih "Tautkan dengan Nomor Telepon"');
+                    console.log(`5️⃣ Masukkan kode: *${code}*`);
+                    console.log('\n⏳ Tunggu koneksi...\n');
+                } else {
+                    throw new Error('Pairing code kosong!');
+                }
                 
             } catch (pairingError) {
                 console.error('❌ Gagal mendapatkan pairing code:', pairingError.message);
@@ -75,14 +91,17 @@ async function startBot() {
             console.log('✅ Session ditemukan! Menghubungkan...\n');
         }
 
+        // ===== CONNECTION HANDLER =====
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
 
+            console.log(`📡 Status: ${connection}`);
+
             if (connection === 'open') {
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log(`✅ BOT CONNECTED!`);
-                console.log(`📱 Nomor Bot: ${sock.user.id}`);
-                console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}`);
+                console.log(`📱 Nomor: ${sock.user.id}`);
+                console.log(`👤 Nama: ${sock.user.name || 'Unknown'}`);
                 console.log(`📝 Prefix: "${setting.prefix}"`);
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
                 console.log('📨 Bot siap menerima pesan!\n');
@@ -97,7 +116,7 @@ async function startBot() {
                     if (fs.existsSync(setting.sessionPath)) {
                         fs.rmSync(setting.sessionPath, { recursive: true, force: true });
                     }
-                    console.log('🔄 Restart bot...');
+                    console.log('🔄 Restart bot dalam 3 detik...');
                     await sleep(3000);
                     process.exit(1);
                 } else {
@@ -110,6 +129,7 @@ async function startBot() {
 
         sock.ev.on('creds.update', saveCreds);
 
+        // ===== MESSAGE HANDLER =====
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
