@@ -9,7 +9,6 @@ const {
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
-const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +16,12 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+// ========================================
+// ===== NOMOR OWNER (GANTI DI SINI!) =====
+// ========================================
+const OWNER_NUMBER = '6281284406156'; // ⚠️ GANTI PAKE NOMOR LU!
+// ========================================
 
 const SESSION_PATH = './session';
 let sock = null;
@@ -219,6 +224,13 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`🌐 Server running on port ${PORT}`);
     console.log(`🔗 Buka: http://localhost:${PORT}`);
     startBot();
+}).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log(`⚠️ Port ${PORT} sibuk, coba port lain...`);
+        const server = app.listen(0, '0.0.0.0', () => {
+            console.log(`🌐 Server running on port ${server.address().port}`);
+        });
+    }
 });
 
 process.on('SIGINT', () => {
