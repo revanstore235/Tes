@@ -8,9 +8,9 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
-const PORT = 8081;
 
 let sock = null;
+let serverPort = 0;
 
 app.post('/api/pair', async (req, res) => {
     try {
@@ -263,8 +263,12 @@ async function startBot() {
     }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
+// ==========================================
+// PAKAI PORT RANDOM (0) + TAMPILIN PORT NYA!
+// ==========================================
+const server = app.listen(0, '0.0.0.0', () => {
+    serverPort = server.address().port;
+    console.log('🌐 Server running on port', serverPort);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
 });
