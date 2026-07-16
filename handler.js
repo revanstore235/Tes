@@ -109,6 +109,7 @@ async function info(sock, msg) {
             `🔢 *Versi:* ${setting.version}\n` +
             `👨‍💻 *Developer:* ${setting.ownerName}\n` +
             `📱 *Owner:* ${setting.ownerNumber.split('@')[0]}\n` +
+            `🤖 *Bot:* ${sock.user.id.split('@')[0]}\n` +
             `⏰ *Uptime:* ${uptime}\n` +
             `💾 *Memory:* ${memory} MB\n` +
             `📡 *Status:* Online ✅\n\n` +
