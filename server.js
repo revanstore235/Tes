@@ -8,6 +8,8 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
+
+// ===== PAKAI PORT DARI RAILWAY (JANGAN TENTUIN MANUAL!) =====
 const PORT = process.env.PORT || 3000;
 
 let sock = null;
@@ -265,6 +267,7 @@ async function startBot() {
     }
 }
 
+// ===== PAKAI PORT DARI RAILWAY =====
 app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
