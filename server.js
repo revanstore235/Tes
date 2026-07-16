@@ -11,7 +11,9 @@ const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 
 const app = express();
-const PORT = 3000;
+// ===== GAUSAH TENTUIN PORT! =====
+// const PORT = 3000; ← HAPUS!
+// const PORT = 8080; ← HAPUS!
 
 app.use(cors());
 app.use(express.json());
@@ -25,9 +27,6 @@ let pairingCode = null;
 let botStatus = 'disconnected';
 let botNumber = null;
 
-// ==========================================
-// START BOT
-// ==========================================
 async function startBot() {
     try {
         if (fs.existsSync(SESSION_PATH)) {
@@ -57,6 +56,7 @@ async function startBot() {
 
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
+
             console.log(`📡 Status: ${connection}`);
 
             if (connection === 'open') {
@@ -74,6 +74,7 @@ async function startBot() {
                 botStatus = 'disconnected';
                 
                 if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                    console.log('⚠️ Session invalid, hapus session...');
                     if (fs.existsSync(SESSION_PATH)) {
                         fs.rmSync(SESSION_PATH, { recursive: true, force: true });
                     }
@@ -86,9 +87,6 @@ async function startBot() {
 
         sock.ev.on('creds.update', saveCreds);
 
-        // ==========================================
-        // MESSAGE HANDLER (LENGKAP!)
-        // ==========================================
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
@@ -112,9 +110,6 @@ async function startBot() {
 
                 console.log(`📨 [${command}] dari ${sender}`);
 
-                // ==========================================
-                // 1. PING
-                // ==========================================
                 if (command === 'ping') {
                     const start = Date.now();
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
@@ -124,9 +119,6 @@ async function startBot() {
                     });
                 }
 
-                // ==========================================
-                // 2. INFO
-                // ==========================================
                 else if (command === 'info') {
                     await sock.sendMessage(chatId, { 
                         text: `🤖 *Bot WhatsApp Pro*\n\n` +
@@ -149,9 +141,6 @@ async function startBot() {
                     });
                 }
 
-                // ==========================================
-                // 3. MENU
-                // ==========================================
                 else if (command === 'menu') {
                     await sock.sendMessage(chatId, { 
                         text: `📋 *MENU BOT*\n\n` +
@@ -172,9 +161,6 @@ async function startBot() {
                     });
                 }
 
-                // ==========================================
-                // 4. OWNER
-                // ==========================================
                 else if (command === 'owner') {
                     await sock.sendMessage(chatId, { 
                         text: `👨‍💻 *Owner Bot*\n\n` +
@@ -184,15 +170,11 @@ async function startBot() {
                     });
                 }
 
-                // ==========================================
-                // 5. HIDETAG / TAGALL
-                // ==========================================
                 else if (command === 'hidetag' || command === 'tagall') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
                     }
 
-                    // Cek admin bot
                     const groupMetadata = await sock.groupMetadata(chatId);
                     const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
                     const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
@@ -211,9 +193,6 @@ async function startBot() {
                     console.log(`✅ Hidetag di grup ${groupMetadata.subject}`);
                 }
 
-                // ==========================================
-                // 6. KICK
-                // ==========================================
                 else if (command === 'kick') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
@@ -263,9 +242,6 @@ async function startBot() {
                     console.log(`✅ Kick @${target.split('@')[0]} dari ${groupMetadata.subject}`);
                 }
 
-                // ==========================================
-                // 7. ADD
-                // ==========================================
                 else if (command === 'add') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
@@ -307,9 +283,6 @@ async function startBot() {
                     console.log(`✅ Add @${target.split('@')[0]} ke ${groupMetadata.subject}`);
                 }
 
-                // ==========================================
-                // 8. SETDESC (Ganti Deskripsi Grup)
-                // ==========================================
                 else if (command === 'setdesc') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
@@ -341,9 +314,6 @@ async function startBot() {
                     console.log(`✅ Deskripsi grup ${groupMetadata.subject} diubah`);
                 }
 
-                // ==========================================
-                // 9. SETNAME (Ganti Nama Grup)
-                // ==========================================
                 else if (command === 'setname') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
@@ -375,9 +345,6 @@ async function startBot() {
                     console.log(`✅ Nama grup diubah menjadi ${newName}`);
                 }
 
-                // ==========================================
-                // 10. LEAVE (Keluar dari Grup)
-                // ==========================================
                 else if (command === 'leave') {
                     if (!isGroup) {
                         return sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
@@ -388,9 +355,6 @@ async function startBot() {
                     console.log(`✅ Bot keluar dari grup`);
                 }
 
-                // ==========================================
-                // 11. DEFAULT
-                // ==========================================
                 else {
                     await sock.sendMessage(chatId, { 
                         text: `❌ Command *${command}* tidak dikenal!\nKetik *!menu* untuk lihat daftar command.` 
@@ -495,12 +459,13 @@ app.post('/api/reset', async (req, res) => {
 });
 
 // ==========================================
-// START SERVER
+// START SERVER DENGAN RANDOM PORT!
 // ==========================================
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(0, '0.0.0.0', () => {
+    const actualPort = server.address().port;
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`🌐 SERVER STARTED!`);
-    console.log(`📡 Port: ${PORT}`);
+    console.log(`📡 Port: ${actualPort} (RANDOM!)`);
     console.log(`🔗 https://tes-production-3a99.up.railway.app`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     startBot();
