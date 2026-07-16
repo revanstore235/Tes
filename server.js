@@ -32,21 +32,19 @@ app.post('/api/pair', async (req, res) => {
         console.log('📦 Baileys v' + version.join('.'));
 
         // ============================================================
-        // KONFIGURASI PAIRING CODE - WAJIB!
+        // KONFIGURASI PAIRING CODE - HAPUS mobile: true!
         // ============================================================
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
             browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
-            mobile: true, // WAJIB!
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
             shouldSyncHistoryMessage: () => false,
-            // ===== TAMBAHAN BIAR PAIRING JALAN! =====
             patchMessageBeforeSending: (msg) => msg,
             getMessage: async (key) => null,
             generateHighQualityLinkPreview: false
@@ -124,7 +122,6 @@ async function startBot() {
             auth: state,
             printQRInTerminal: false,
             browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
-            mobile: true,
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
