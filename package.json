@@ -1,7 +1,7 @@
 {
   "name": "botwa",
   "version": "4.0.0",
-  "description": "WhatsApp Bot - Pairing Code FIX",
+  "description": "WhatsApp Bot - QR CODE",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
