@@ -1,7 +1,7 @@
 {
-  "name": "botwa",
-  "version": "4.0.0",
-  "description": "WhatsApp Bot - Pairing Code FIX",
+  "name": "botwa-ultimate",
+  "version": "5.0.0",
+  "description": "WhatsApp Bot - Ultimate Pairing Fix",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -9,6 +9,8 @@
   "dependencies": {
     "@whiskeysockets/baileys": "6.7.9",
     "@hapi/boom": "^10.0.1",
-    "qrcode-terminal": "^0.12.0"
+    "qrcode-terminal": "^0.12.0",
+    "pino": "^8.17.2",
+    "pino-pretty": "^10.3.1"
   }
 }
