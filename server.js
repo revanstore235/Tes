@@ -3,6 +3,32 @@ const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBailey
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 
+// ============================================================
+// 1. MATIKIN SEMUA LOG BERANTAKAN (BIAR TERMINAL BERSIH!)
+// ============================================================
+console.log = function() {};
+console.info = function() {};
+console.warn = function() {};
+console.debug = function() {};
+console.trace = function() {};
+
+// HANYA TAMPILIN PESAN PENTING BUAT LU
+const originalLog = console.log;
+const originalError = console.error;
+console.log = function(...args) {
+    const msg = args.join(' ');
+    if (msg.includes('✅') || msg.includes('❌') || msg.includes('📱') || msg.includes('🌐') || msg.includes('PAIRING')) {
+        originalLog.apply(console, args);
+    }
+};
+console.error = function(...args) {
+    const msg = args.join(' ');
+    if (msg.includes('❌') || msg.includes('Error') || msg.includes('Fatal')) {
+        originalError.apply(console, args);
+    }
+};
+// ============================================================
+
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
@@ -13,16 +39,19 @@ const PORT = process.env.PORT || 3000;
 let sock = null;
 let pairingCode = null;
 
-// ===== API: PAIRING =====
+// ==========================================
+// API: PAIRING (PASTI JALAN)
+// ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phone } = req.body;
-        if (!phone) return res.status(400).json({ error: 'Nomor HP wajib!' });
+        if (!phone) {
+            return res.status(400).json({ error: 'Nomor HP wajib!' });
+        }
 
         const clean = phone.replace(/\D/g, '');
         console.log('📱 Pairing untuk:', clean);
 
-        // ===== PASTIKAN SESSION BERSIH =====
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
         }
@@ -31,30 +60,27 @@ app.post('/api/pair', async (req, res) => {
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
 
-        console.log('📦 Baileys v' + version.join('.'));
-
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            // ===== PAKAI BROWSER MOBILE! =====
             browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
-            // ===== MOBILE: TRUE UNTUK PAIRING CODE =====
-            mobile: true,
+            mobile: true, // <--- WAJIB! BIAR PAIRING CODE BISA
             connectTimeoutMs: 30000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 30000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
+            shouldSyncHistoryMessage: () => false,
+            logger: {
+                level: 'silent',
+                child: () => ({ trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {} })
+            }
         });
 
         sock.ev.on('creds.update', saveCreds);
-
-        // ===== TUNGGU SOCKET SIAP =====
         await new Promise(r => setTimeout(r, 3000));
 
-        // ===== REQUEST PAIRING CODE =====
         const code = await sock.requestPairingCode(clean);
         pairingCode = code;
         console.log('✅ PAIRING CODE:', code);
@@ -71,8 +97,24 @@ app.get('/api/status', (req, res) => {
     res.json({ status: sock ? 'connected' : 'disconnected' });
 });
 
+app.post('/api/reset', async (req, res) => {
+    try {
+        if (sock) {
+            await sock.end();
+            sock = null;
+        }
+        if (fs.existsSync('./session')) {
+            fs.rmSync('./session', { recursive: true, force: true });
+        }
+        pairingCode = null;
+        res.json({ success: true, message: 'Bot direset!' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // ==========================================
-// START BOT
+// START BOT & MESSAGE HANDLER
 // ==========================================
 async function startBot() {
     try {
@@ -83,8 +125,6 @@ async function startBot() {
 
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
-
-        console.log('📦 Baileys v' + version.join('.'));
 
         sock = makeWASocket({
             version,
@@ -97,7 +137,11 @@ async function startBot() {
             defaultQueryTimeoutMs: 30000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
+            shouldSyncHistoryMessage: () => false,
+            logger: {
+                level: 'silent',
+                child: () => ({ trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {} })
+            }
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -110,12 +154,18 @@ async function startBot() {
             }
             if (connection === 'close') {
                 const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
-                console.log('❌ Disconnected:', statusCode);
+                if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                    if (fs.existsSync('./session')) {
+                        fs.rmSync('./session', { recursive: true, force: true });
+                    }
+                }
                 setTimeout(startBot, 5000);
             }
         });
 
-        // ===== MESSAGE HANDLER =====
+        // ==========================================
+        // MESSAGE HANDLER (SEMUA FITUR LENGKAP!)
+        // ==========================================
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
@@ -131,13 +181,9 @@ async function startBot() {
                 const command = args.shift()?.toLowerCase();
                 if (!command) return;
 
-                const sender = msg.key.participant || msg.key.remoteJid;
                 const chatId = msg.key.remoteJid;
                 const isGroup = chatId.endsWith('@g.us');
 
-                console.log('📨 [', command, ']');
-
-                // ===== COMMANDS =====
                 if (command === 'ping') {
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
                 } else if (command === 'info') {
@@ -146,142 +192,84 @@ async function startBot() {
                     });
                 } else if (command === 'menu') {
                     await sock.sendMessage(chatId, {
-                        text: '📋 *MENU BOT*\n\n' +
-                            '!ping - Test\n' +
-                            '!info - Info\n' +
-                            '!menu - Menu\n' +
-                            '!owner - Owner\n' +
-                            '!hidetag - Tag semua (grup)\n' +
-                            '!kick @user - Kick (grup)\n' +
-                            '!add @user - Add (grup)\n' +
-                            '!setdesc teks - Ganti deskripsi\n' +
-                            '!setname nama - Ganti nama grup\n' +
-                            '!leave - Keluar grup'
+                        text: '📋 *MENU BOT*\n\n!ping - Test\n!info - Info\n!menu - Menu\n!owner - Owner\n!hidetag - Tag semua (grup)\n!kick @user - Kick (grup)\n!add @user - Add (grup)\n!setdesc teks - Ganti deskripsi\n!setname nama - Ganti nama grup\n!leave - Keluar grup'
                     });
                 } else if (command === 'owner') {
                     await sock.sendMessage(chatId, { text: '👨‍💻 Owner: ' + OWNER });
                 } else if (command === 'hidetag' || command === 'tagall') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     const metadata = await sock.groupMetadata(chatId);
                     const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
                     if (!metadata.participants.find(p => p.id === botId)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Bot harus ADMIN!' });
-                        return;
+                        return sock.sendMessage(chatId, { text: '❌ Bot harus ADMIN!' });
                     }
                     const mentions = metadata.participants.map(p => p.id);
-                    await sock.sendMessage(chatId, {
-                        text: args.join(' ') || '👥 HIDETAG!',
-                        mentions: mentions
-                    });
+                    await sock.sendMessage(chatId, { text: args.join(' ') || '👥 HIDETAG!', mentions });
                 } else if (command === 'kick') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
+                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
+                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
                     }
                     const ctx = msg.message?.extendedTextMessage?.contextInfo;
                     const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) {
-                        await sock.sendMessage(chatId, { text: '❌ Tag user!' });
-                        return;
-                    }
+                    if (!target) return sock.sendMessage(chatId, { text: '❌ Tag user!' });
                     if (target === OWNER + '@s.whatsapp.net') {
-                        await sock.sendMessage(chatId, { text: '❌ Gak bisa kick owner!' });
-                        return;
+                        return sock.sendMessage(chatId, { text: '❌ Gak bisa kick owner!' });
                     }
                     await sock.groupParticipantsUpdate(chatId, [target], 'remove');
-                    await sock.sendMessage(chatId, {
-                        text: '👢 @' + target.split('@')[0] + ' di-kick!',
-                        mentions: [target]
-                    });
+                    await sock.sendMessage(chatId, { text: '👢 @' + target.split('@')[0] + ' di-kick!', mentions: [target] });
                 } else if (command === 'add') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
+                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
+                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
                     }
                     const ctx = msg.message?.extendedTextMessage?.contextInfo;
                     const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) {
-                        await sock.sendMessage(chatId, { text: '❌ Tag user!' });
-                        return;
-                    }
+                    if (!target) return sock.sendMessage(chatId, { text: '❌ Tag user!' });
                     await sock.groupParticipantsUpdate(chatId, [target], 'add');
-                    await sock.sendMessage(chatId, {
-                        text: '✅ @' + target.split('@')[0] + ' di-add!',
-                        mentions: [target]
-                    });
+                    await sock.sendMessage(chatId, { text: '✅ @' + target.split('@')[0] + ' di-add!', mentions: [target] });
                 } else if (command === 'setdesc') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
+                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
+                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
                     }
                     const newDesc = args.join(' ');
-                    if (!newDesc) {
-                        await sock.sendMessage(chatId, { text: '❌ Masukkan deskripsi!' });
-                        return;
-                    }
+                    if (!newDesc) return sock.sendMessage(chatId, { text: '❌ Masukkan deskripsi!' });
                     await sock.groupUpdateDescription(chatId, newDesc);
                     await sock.sendMessage(chatId, { text: '✅ Deskripsi diubah!\n' + newDesc });
                 } else if (command === 'setname') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
+                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
+                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
                     }
                     const newName = args.join(' ');
-                    if (!newName) {
-                        await sock.sendMessage(chatId, { text: '❌ Masukkan nama!' });
-                        return;
-                    }
+                    if (!newName) return sock.sendMessage(chatId, { text: '❌ Masukkan nama!' });
                     await sock.groupUpdateSubject(chatId, newName);
                     await sock.sendMessage(chatId, { text: '✅ Nama grup diubah!\n' + newName });
                 } else if (command === 'leave') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
+                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                     await sock.sendMessage(chatId, { text: '👋 Bye!' });
                     await sock.groupLeave(chatId);
                 } else {
-                    await sock.sendMessage(chatId, {
-                        text: '❌ Command *' + command + '* tidak dikenal!\nKetik *!menu*'
-                    });
+                    await sock.sendMessage(chatId, { text: '❌ Command *' + command + '* tidak dikenal!\nKetik *!menu*' });
                 }
 
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                // SILENT
             }
         });
 
     } catch (error) {
-        console.error('❌ Fatal error:', error.message);
         setTimeout(startBot, 5000);
     }
 }
 
 // ==========================================
-// START SERVER
+// START
 // ==========================================
 app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
