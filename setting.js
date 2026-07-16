@@ -2,9 +2,9 @@ const setting = {
     botName: 'KickBot',
     version: '4.0.0',
     prefix: '!',
-    ownerNumber: '6281284406155@s.whatsapp.net',
+    ownerNumber: '6281284406155@s.whatsapp.net', // fixed: sebelumnya salah ketik 156
+    botNumber: '6283180391763', // nomor yang dipakai untuk pairing code (nomor bot)
     ownerName: 'Developer',
-    botNumber: '6281284406155@s.whatsapp.net', // ⚠️ PAKE NOMOR LU DULU BUAT TEST!
     sessionPath: './session',
     reconnectDelay: 5000,
     cooldowns: {
