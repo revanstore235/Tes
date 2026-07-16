@@ -2,9 +2,9 @@ const setting = {
     botName: 'KickBot',
     version: '4.0.0',
     prefix: '!',
-    ownerNumber: '6281284406156@s.whatsapp.net',
+    ownerNumber: '6281284406155@s.whatsapp.net',
     ownerName: 'Developer',
-    botNumber: '6283180391763@s.whatsapp.net', // ⚠️ GANTI!
+    botNumber: '6281284406155@s.whatsapp.net', // ⚠️ PAKE NOMOR LU DULU BUAT TEST!
     sessionPath: './session',
     reconnectDelay: 5000,
     cooldowns: {
