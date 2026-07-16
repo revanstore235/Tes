@@ -1,13 +1,13 @@
 {
   "name": "web-bot-wa",
   "version": "5.0.0",
-  "description": "WhatsApp Bot - Web Version",
+  "description": "WhatsApp Bot - Stable Version",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@whiskeysockets/baileys": "6.7.9",
+    "@whiskeysockets/baileys": "6.5.0",
     "@hapi/boom": "^10.0.1",
     "express": "^4.18.2",
     "cors": "^2.8.5"
