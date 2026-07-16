@@ -3,44 +3,41 @@ const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBailey
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 
-// ============================================================
-// 1. MATIKIN SEMUA LOG BERANTAKAN (BIAR TERMINAL BERSIH!)
-// ============================================================
-console.log = function() {};
-console.info = function() {};
-console.warn = function() {};
-console.debug = function() {};
-console.trace = function() {};
-
-// HANYA TAMPILIN PESAN PENTING BUAT LU
+// ==========================================
+// MATIKAN SEMUA LOG BAILEYS YANG BERANTAKAN
+// ==========================================
 const originalLog = console.log;
 const originalError = console.error;
+
 console.log = function(...args) {
     const msg = args.join(' ');
-    if (msg.includes('✅') || msg.includes('❌') || msg.includes('📱') || msg.includes('🌐') || msg.includes('PAIRING')) {
+    if (msg.includes('✅') || msg.includes('❌') || msg.includes('📱') || 
+        msg.includes('🌐') || msg.includes('📡') || msg.includes('📦') ||
+        msg.includes('PAIRING') || msg.includes('BOT CONNECTED')) {
         originalLog.apply(console, args);
     }
 };
+
 console.error = function(...args) {
     const msg = args.join(' ');
     if (msg.includes('❌') || msg.includes('Error') || msg.includes('Fatal')) {
         originalError.apply(console, args);
     }
 };
-// ============================================================
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
 const OWNER = '6281284406156';
-const PORT = process.env.PORT || 3000;
+// ===== PORT RANDOM (0) BIAR GAK KEPAKE! =====
+const PORT = 0;
 
 let sock = null;
 let pairingCode = null;
 
 // ==========================================
-// API: PAIRING (PASTI JALAN)
+// API: PAIRING
 // ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
@@ -60,12 +57,14 @@ app.post('/api/pair', async (req, res) => {
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
 
+        console.log('📦 Baileys v' + version.join('.'));
+
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
             browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
-            mobile: true, // <--- WAJIB! BIAR PAIRING CODE BISA
+            mobile: true,
             connectTimeoutMs: 30000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 30000,
@@ -114,7 +113,7 @@ app.post('/api/reset', async (req, res) => {
 });
 
 // ==========================================
-// START BOT & MESSAGE HANDLER
+// START BOT
 // ==========================================
 async function startBot() {
     try {
@@ -164,7 +163,7 @@ async function startBot() {
         });
 
         // ==========================================
-        // MESSAGE HANDLER (SEMUA FITUR LENGKAP!)
+        // MESSAGE HANDLER (FITUR LENGKAP!)
         // ==========================================
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
@@ -269,10 +268,22 @@ async function startBot() {
 }
 
 // ==========================================
-// START
+// START SERVER PAKE RANDOM PORT!
 // ==========================================
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
+const server = app.listen(PORT, '0.0.0.0', () => {
+    const actualPort = server.address().port;
+    console.log('🌐 SERVER STARTED!');
+    console.log('📡 Port:', actualPort);
     console.log('🔗 https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co');
     startBot();
+});
+
+// ===== KALO ERROR PORT, TETAP JALAN =====
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log('⚠️ Port sibuk, coba port lain...');
+        const newServer = app.listen(0, '0.0.0.0', () => {
+            console.log('🌐 Server running on port', newServer.address().port);
+        });
+    }
 });
