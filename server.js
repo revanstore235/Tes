@@ -318,15 +318,27 @@ app.post('/api/reset', async (req, res) => {
 });
 
 // ==========================================
-// FIX: PAKAI PORT 5050!
+// PAKAI PORT RANDOM + HANDLE ERROR!
 // ==========================================
-const PORT = 5050;
-const server = app.listen(PORT, '0.0.0.0', function() {
-    console.log('🌐 SERVER STARTED!');
-    console.log('📡 Port: ' + PORT);
-    console.log('🔗 https://tes-production-3a99.up.railway.app');
-    startBot();
-});
+function startServer(port) {
+    const server = app.listen(port, '0.0.0.0')
+        .on('listening', function() {
+            console.log('🌐 SERVER STARTED!');
+            console.log('📡 Port: ' + this.address().port);
+            console.log('🔗 https://tes-production-3a99.up.railway.app');
+            startBot();
+        })
+        .on('error', function(err) {
+            if (err.code === 'EADDRINUSE') {
+                console.log('⚠️ Port sibuk, coba port lain...');
+                startServer(0);
+            } else {
+                console.error('❌ Server error:', err);
+            }
+        });
+}
+
+startServer(0);
 
 process.on('SIGINT', function() { process.exit(0); });
 process.on('SIGTERM', function() { process.exit(0); });
