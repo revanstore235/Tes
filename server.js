@@ -9,7 +9,7 @@ app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
 
-// ===== PAKAI PORT DARI RAILWAY (JANGAN TENTUIN MANUAL!) =====
+// ===== PAKAI PORT DARI RAILWAY (JANGAN DIPAKE 8080!) =====
 const PORT = process.env.PORT || 3000;
 
 let sock = null;
@@ -25,9 +25,10 @@ app.post('/api/pair', async (req, res) => {
         console.log('📱 Pairing untuk:', clean);
 
         if (fs.existsSync('./session')) {
-            fs.rmSync('./session', { recursive: true, force: true });
+            console.log('📂 Session ditemukan!');
+        } else {
+            fs.mkdirSync('./session', { recursive: true });
         }
-        fs.mkdirSync('./session');
 
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
@@ -50,6 +51,15 @@ app.post('/api/pair', async (req, res) => {
 
         sock.ev.on('creds.update', saveCreds);
         await new Promise(r => setTimeout(r, 5000));
+
+        if (sock.authState.creds.registered) {
+            console.log('✅ Session masih valid! Bot sudah terhubung.');
+            return res.json({
+                success: true,
+                message: 'Bot sudah terhubung!',
+                botNumber: sock.user.id
+            });
+        }
 
         const code = await sock.requestPairingCode(clean);
         console.log('✅ PAIRING CODE:', code);
@@ -83,6 +93,7 @@ app.post('/api/reset', async (req, res) => {
         }
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
+            console.log('🗑️ Session dihapus!');
         }
         setTimeout(startBot, 3000);
         res.json({ success: true, message: 'Bot direset!' });
@@ -93,10 +104,9 @@ app.post('/api/reset', async (req, res) => {
 
 async function startBot() {
     try {
-        if (fs.existsSync('./session')) {
-            fs.rmSync('./session', { recursive: true, force: true });
+        if (!fs.existsSync('./session')) {
+            fs.mkdirSync('./session', { recursive: true });
         }
-        fs.mkdirSync('./session');
 
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
@@ -128,6 +138,7 @@ async function startBot() {
                 if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
                     if (fs.existsSync('./session')) {
                         fs.rmSync('./session', { recursive: true, force: true });
+                        console.log('🗑️ Session corrupt, dihapus!');
                     }
                 }
                 setTimeout(startBot, 5000);
@@ -267,9 +278,21 @@ async function startBot() {
     }
 }
 
-// ===== PAKAI PORT DARI RAILWAY =====
-app.listen(PORT, '0.0.0.0', () => {
+// ==========================================
+// PAKAI PORT DARI RAILWAY (JANGAN PAKE 8080!)
+// ==========================================
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
+});
+
+// ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log('⚠️ Port', PORT, 'sibuk, coba port lain...');
+        const newServer = app.listen(0, '0.0.0.0', () => {
+            console.log('🌐 Server running on port', newServer.address().port);
+        });
+    }
 });
