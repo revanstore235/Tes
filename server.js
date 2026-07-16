@@ -5,201 +5,15 @@ const fs = require('fs');
 
 const app = express();
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static('public')); // ← SERVE index.html dari folder public!
 
 const OWNER = '6281284406156';
+const PORT = process.env.PORT || 3000;
 
 let sock = null;
 let pairingCode = null;
 
-// ==========================================
-// HTML WEB + JS + CSS (SATU FILE!)
-// ==========================================
-app.get('/', (req, res) => {
-    res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>🤖 WhatsApp Bot</title>
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-                font-family: Arial, sans-serif;
-                background: linear-gradient(135deg, #667eea, #764ba2);
-                min-height: 100vh;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                padding: 20px;
-            }
-            .card {
-                background: white;
-                border-radius: 20px;
-                padding: 40px;
-                max-width: 450px;
-                width: 100%;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            }
-            h1 { text-align: center; color: #333; margin-bottom: 5px; }
-            .sub { text-align: center; color: #888; margin-bottom: 25px; font-size: 14px; }
-            .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-            .input-group input {
-                flex: 1;
-                padding: 14px;
-                border: 2px solid #e0e0e0;
-                border-radius: 12px;
-                font-size: 16px;
-            }
-            .input-group input:focus { outline: none; border-color: #667eea; }
-            .input-group button {
-                padding: 14px 24px;
-                background: #667eea;
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 16px;
-                font-weight: bold;
-                cursor: pointer;
-            }
-            .input-group button:disabled { opacity: 0.6; }
-            #result {
-                background: #f5f5f5;
-                border-radius: 12px;
-                padding: 20px;
-                text-align: center;
-                min-height: 80px;
-                margin-bottom: 20px;
-            }
-            .code {
-                font-size: 28px;
-                font-weight: bold;
-                color: #28a745;
-                letter-spacing: 4px;
-                background: white;
-                padding: 10px;
-                border-radius: 8px;
-                margin: 10px 0;
-                border: 2px dashed #28a745;
-            }
-            .status {
-                text-align: center;
-                color: #666;
-                font-size: 14px;
-            }
-            .status.online { color: #28a745; }
-            .status.offline { color: #dc3545; }
-            .menu-box {
-                background: #f0f0f0;
-                border-radius: 12px;
-                padding: 15px;
-                margin-top: 15px;
-                font-size: 13px;
-                max-height: 200px;
-                overflow-y: auto;
-            }
-            .menu-box b { color: #667eea; }
-        </style>
-    </head>
-    <body>
-        <div class="card">
-            <h1>🤖 WhatsApp Bot</h1>
-            <p class="sub">Masukkan nomor HP untuk pairing</p>
-
-            <div class="input-group">
-                <input type="text" id="phone" placeholder="6281234567890" maxlength="15">
-                <button id="btn" onclick="pairing()">🔑 Get Code</button>
-            </div>
-
-            <div id="result">
-                <div style="color:#888;">Masukkan nomor HP</div>
-            </div>
-
-            <div class="status" id="status">⏳ Menunggu...</div>
-
-            <div class="menu-box">
-                <b>📋 MENU BOT</b><br>
-                !ping - Test bot<br>
-                !info - Info bot<br>
-                !menu - Menu ini<br>
-                !owner - Info owner<br>
-                !hidetag - Mention semua (grup)<br>
-                !kick @user - Kick (grup)<br>
-                !add @user - Add (grup)<br>
-                !setdesc teks - Ganti deskripsi<br>
-                !setname nama - Ganti nama grup<br>
-                !leave - Keluar grup
-            </div>
-        </div>
-
-        <script>
-            async function pairing() {
-                const phone = document.getElementById('phone').value.trim();
-                if (!phone) return alert('Masukkan nomor HP!');
-                if (phone.length < 10) return alert('Nomor tidak valid!');
-
-                const btn = document.getElementById('btn');
-                btn.disabled = true;
-                btn.textContent = '⏳ Loading...';
-
-                const result = document.getElementById('result');
-
-                try {
-                    const res = await fetch('/api/pair', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone })
-                    });
-                    const data = await res.json();
-
-                    if (data.success && data.code) {
-                        result.innerHTML = '<div class="code">' + data.code + '</div><div style="color:#666;">Kode valid 60 detik!</div>';
-                        document.getElementById('status').textContent = '🟢 Kode siap!';
-                        document.getElementById('status').className = 'status online';
-                    } else {
-                        result.innerHTML = '<div style="color:#dc3545;">❌ ' + (data.error || 'Gagal!') + '</div>';
-                    }
-                } catch (e) {
-                    result.innerHTML = '<div style="color:#dc3545;">❌ Error: ' + e.message + '</div>';
-                }
-
-                btn.disabled = false;
-                btn.textContent = '🔑 Get Code';
-            }
-
-            document.getElementById('phone').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') pairing();
-            });
-            document.getElementById('phone').addEventListener('input', function() {
-                this.value = this.value.replace(/\\D/g, '');
-            });
-
-            async function checkStatus() {
-                try {
-                    const res = await fetch('/api/status');
-                    const data = await res.json();
-                    const el = document.getElementById('status');
-                    if (data.status === 'connected') {
-                        el.textContent = '🟢 Online';
-                        el.className = 'status online';
-                    } else {
-                        el.textContent = '🔴 Offline';
-                        el.className = 'status offline';
-                    }
-                } catch(e) {}
-            }
-            setInterval(checkStatus, 5000);
-            checkStatus();
-        </script>
-    </body>
-    </html>
-    `);
-});
-
-// ==========================================
-// API: PAIRING CODE
-// ==========================================
+// ===== API: PAIRING =====
 app.post('/api/pair', async (req, res) => {
     try {
         const { phone } = req.body;
@@ -216,9 +30,14 @@ app.post('/api/pair', async (req, res) => {
                 auth: state,
                 printQRInTerminal: false,
                 browser: ['Chrome', 'Windows', '120.0.0.0'],
-                connectTimeoutMs: 60000,
-                keepAliveIntervalMs: 15000,
-                markOnlineOnConnect: true
+                connectTimeoutMs: 30000,
+                keepAliveIntervalMs: 10000,
+                defaultQueryTimeoutMs: 30000,
+                markOnlineOnConnect: true,
+                ws: {
+                    agent: null,
+                    timeout: 30000
+                }
             });
             sock.ev.on('creds.update', saveCreds);
             await new Promise(r => setTimeout(r, 3000));
@@ -239,7 +58,7 @@ app.get('/api/status', (req, res) => {
 });
 
 // ==========================================
-// BOT MESSAGE HANDLER (FITUR LENGKAP!)
+// START BOT
 // ==========================================
 async function startBot() {
     try {
@@ -258,9 +77,14 @@ async function startBot() {
             auth: state,
             printQRInTerminal: false,
             browser: ['Chrome', 'Windows', '120.0.0.0'],
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 15000,
-            markOnlineOnConnect: true
+            connectTimeoutMs: 30000,
+            keepAliveIntervalMs: 10000,
+            defaultQueryTimeoutMs: 30000,
+            markOnlineOnConnect: true,
+            ws: {
+                agent: null,
+                timeout: 30000
+            }
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -279,7 +103,7 @@ async function startBot() {
         });
 
         // ==========================================
-        // MESSAGE HANDLER (SEMUA FITUR!)
+        // MESSAGE HANDLER (FITUR LENGKAP!)
         // ==========================================
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
@@ -300,22 +124,15 @@ async function startBot() {
                 const chatId = msg.key.remoteJid;
                 const isGroup = chatId.endsWith('@g.us');
 
-                console.log('📨 [', command, '] dari', sender);
+                console.log('📨 [', command, ']');
 
-                // ===== 1. PING =====
                 if (command === 'ping') {
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
-                }
-
-                // ===== 2. INFO =====
-                else if (command === 'info') {
+                } else if (command === 'info') {
                     await sock.sendMessage(chatId, {
                         text: '🤖 *Bot WhatsApp Pro*\n📱 ' + sock.user.id + '\n📡 Online ✅\n👨‍💻 Owner: ' + OWNER
                     });
-                }
-
-                // ===== 3. MENU =====
-                else if (command === 'menu') {
+                } else if (command === 'menu') {
                     await sock.sendMessage(chatId, {
                         text: '📋 *MENU BOT*\n\n' +
                             '!ping - Test\n' +
@@ -329,15 +146,9 @@ async function startBot() {
                             '!setname nama - Ganti nama grup\n' +
                             '!leave - Keluar grup'
                     });
-                }
-
-                // ===== 4. OWNER =====
-                else if (command === 'owner') {
+                } else if (command === 'owner') {
                     await sock.sendMessage(chatId, { text: '👨‍💻 Owner: ' + OWNER });
-                }
-
-                // ===== 5. HIDETAG / TAGALL =====
-                else if (command === 'hidetag' || command === 'tagall') {
+                } else if (command === 'hidetag' || command === 'tagall') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
@@ -353,10 +164,7 @@ async function startBot() {
                         text: args.join(' ') || '👥 HIDETAG!',
                         mentions: mentions
                     });
-                }
-
-                // ===== 6. KICK =====
-                else if (command === 'kick') {
+                } else if (command === 'kick') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
@@ -381,10 +189,7 @@ async function startBot() {
                         text: '👢 @' + target.split('@')[0] + ' di-kick!',
                         mentions: [target]
                     });
-                }
-
-                // ===== 7. ADD =====
-                else if (command === 'add') {
+                } else if (command === 'add') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
@@ -405,10 +210,7 @@ async function startBot() {
                         text: '✅ @' + target.split('@')[0] + ' di-add!',
                         mentions: [target]
                     });
-                }
-
-                // ===== 8. SETDESC =====
-                else if (command === 'setdesc') {
+                } else if (command === 'setdesc') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
@@ -425,10 +227,7 @@ async function startBot() {
                     }
                     await sock.groupUpdateDescription(chatId, newDesc);
                     await sock.sendMessage(chatId, { text: '✅ Deskripsi diubah!\n' + newDesc });
-                }
-
-                // ===== 9. SETNAME =====
-                else if (command === 'setname') {
+                } else if (command === 'setname') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
@@ -445,20 +244,14 @@ async function startBot() {
                     }
                     await sock.groupUpdateSubject(chatId, newName);
                     await sock.sendMessage(chatId, { text: '✅ Nama grup diubah!\n' + newName });
-                }
-
-                // ===== 10. LEAVE =====
-                else if (command === 'leave') {
+                } else if (command === 'leave') {
                     if (!isGroup) {
                         await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
                         return;
                     }
                     await sock.sendMessage(chatId, { text: '👋 Bye!' });
                     await sock.groupLeave(chatId);
-                }
-
-                // ===== DEFAULT =====
-                else {
+                } else {
                     await sock.sendMessage(chatId, {
                         text: '❌ Command *' + command + '* tidak dikenal!\nKetik *!menu*'
                     });
@@ -476,9 +269,8 @@ async function startBot() {
 }
 
 // ==========================================
-// START SERVER & BOT
+// START SERVER
 // ==========================================
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
     console.log('🔗 https://' + process.env.REPL_SLUG + '.' + process.env.REPL_OWNER + '.repl.co');
