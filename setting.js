@@ -1,15 +1,15 @@
 const setting = {
     botName: 'KickBot',
-    version: '4.0.0',
+    version: '5.0.0',
     prefix: '!',
     
-    // ===== OWNER = NOMOR LU YANG PUNYA HP =====
-    ownerNumber: '6281284406156@s.whatsapp.net', // NOMOR LU!
-    ownerName: 'Developer',
+    // ===== NOMOR OWNER (NOMOR LU YANG PUNYA HP) =====
+    ownerNumber: '6281284406156@s.whatsapp.net',
+    ownerName: 'Revan',
     
-    // ===== BOT = NOMOR YANG MAU JADI BOT (HARUS BEDA!) =====
+    // ===== NOMOR BOT (HARUS BEDA DARI OWNER!) =====
     // ⚠️ GANTI DENGAN NOMOR LAIN YANG MAU JADI BOT!
-    botNumber: '6283180391763@s.whatsapp.net', // NOMOR BOT!
+    botNumber: '6283180391763@s.whatsapp.net',
     
     sessionPath: './session',
     reconnectDelay: 5000,
@@ -30,5 +30,11 @@ const setting = {
         noTarget: '❌ Tag atau reply user yang mau di-kick!\nCara: !kick @user'
     }
 };
+
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log(`🤖 ${setting.botName} v${setting.version}`);
+console.log(`👨‍💻 Owner: ${setting.ownerNumber.split('@')[0]}`);
+console.log(`📱 Bot: ${setting.botNumber.split('@')[0]}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
 module.exports = { setting };
