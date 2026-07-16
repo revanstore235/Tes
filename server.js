@@ -4,36 +4,10 @@ const {
     makeWASocket, 
     useMultiFileAuthState, 
     DisconnectReason,
-    fetchLatestBaileysVersion,
-    Browsers
+    fetchLatestBaileysVersion
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
-
-// ===== MATIKIN SEMUA LOG =====
-console.log = function() {};
-console.info = function() {};
-console.warn = function() {};
-console.debug = function() {};
-console.trace = function() {};
-
-// ===== TAPI TETAP TAMPILIN PESAN PENTING =====
-const originalLog = console.log;
-const originalError = console.error;
-
-console.log = function(...args) {
-    const msg = args.join(' ');
-    if (msg.includes('✅') || msg.includes('❌') || msg.includes('📱') || msg.includes('🌐') || msg.includes('📡')) {
-        originalLog.apply(console, args);
-    }
-};
-
-console.error = function(...args) {
-    const msg = args.join(' ');
-    if (msg.includes('❌') || msg.includes('Fatal') || msg.includes('Error')) {
-        originalError.apply(console, args);
-    }
-};
 
 const app = express();
 app.use(cors());
@@ -52,17 +26,16 @@ async function startBot() {
     try {
         if (fs.existsSync(SESSION_PATH)) {
             fs.rmSync(SESSION_PATH, { recursive: true, force: true });
-            console.log('🗑️ Session lama dihapus');
         }
         fs.mkdirSync(SESSION_PATH, { recursive: true });
 
         const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
         const { version } = await fetchLatestBaileysVersion();
 
-        console.log(`📦 Baileys v${version.join('.')}`);
+        console.log('📦 Baileys v' + version.join('.'));
 
         sock = makeWASocket({
-            version,
+            version: version,
             auth: state,
             printQRInTerminal: false,
             browser: ['KickBot', 'Chrome', '120.0.0.0'],
@@ -72,34 +45,25 @@ async function startBot() {
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
-            shouldSyncHistoryMessage: () => false,
-            // ===== MATIKIN LOGGER =====
-            logger: {
-                level: 'silent',
-                child: () => ({ 
-                    trace: () => {}, 
-                    debug: () => {}, 
-                    info: () => {}, 
-                    warn: () => {}, 
-                    error: () => {} 
-                })
-            }
+            shouldSyncHistoryMessage: function() { return false; }
         });
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+            const connection = update.connection;
+            const lastDisconnect = update.lastDisconnect;
 
             if (connection === 'open') {
                 botStatus = 'connected';
                 botNumber = sock.user.id;
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                console.log(`✅ BOT CONNECTED!`);
-                console.log(`📱 Nomor: ${botNumber}`);
-                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+                console.log('✅ BOT CONNECTED!');
+                console.log('📱 Nomor: ' + botNumber);
             }
 
             if (connection === 'close') {
                 const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                console.log('❌ Disconnected: ' + statusCode);
+                botStatus = 'disconnected';
+                
                 if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
                     if (fs.existsSync(SESSION_PATH)) {
                         fs.rmSync(SESSION_PATH, { recursive: true, force: true });
@@ -132,83 +96,313 @@ async function startBot() {
                 const chatId = msg.key.remoteJid;
                 const isGroup = chatId.endsWith('@g.us');
 
+                console.log('📨 [ ' + command + ' ] dari ' + sender);
+
+                // ==========================================
+                // 1. PING
+                // ==========================================
                 if (command === 'ping') {
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
-                } else if (command === 'info') {
+                }
+
+                // ==========================================
+                // 2. INFO
+                // ==========================================
+                else if (command === 'info') {
                     await sock.sendMessage(chatId, { 
-                        text: `🤖 *Bot WhatsApp Pro*\n📱 Nomor: ${sock.user.id}\n📡 Status: Online ✅\n👨‍💻 Owner: ${OWNER_NUMBER}` 
+                        text: '🤖 *Bot WhatsApp Pro*\n\n' +
+                            '📱 Nomor: ' + sock.user.id + '\n' +
+                            '📡 Status: Online ✅\n' +
+                            '👨‍💻 Owner: ' + OWNER_NUMBER + '\n\n' +
+                            '📋 *Commands:*\n' +
+                            '!ping - Test bot\n' +
+                            '!info - Info bot\n' +
+                            '!menu - Menu\n' +
+                            '!owner - Info owner\n' +
+                            '!hidetag - Mention semua member (grup)\n' +
+                            '!kick @user - Kick member (grup)\n' +
+                            '!add @user - Tambah member (grup)\n' +
+                            '!setdesc [teks] - Ganti deskripsi grup\n' +
+                            '!setname [nama] - Ganti nama grup\n' +
+                            '!tagall - Mention semua member\n' +
+                            '!leave - Keluar dari grup' 
                     });
-                } else if (command === 'menu') {
+                }
+
+                // ==========================================
+                // 3. MENU
+                // ==========================================
+                else if (command === 'menu') {
                     await sock.sendMessage(chatId, { 
-                        text: `📋 *MENU BOT*\n\n!ping - Test\n!info - Info\n!menu - Menu\n!hidetag - Tag semua\n!kick @user - Kick\n!add @user - Add\n!setdesc - Ganti desk\n!setname - Ganti nama\n!leave - Keluar grup` 
+                        text: '📋 *MENU BOT*\n\n' +
+                            '🔹 *Command Umum:*\n' +
+                            '!ping - Test koneksi\n' +
+                            '!info - Info bot\n' +
+                            '!menu - Menu ini\n' +
+                            '!owner - Info owner\n\n' +
+                            '🔸 *Command Grup (Admin):*\n' +
+                            '!hidetag - Mention semua member\n' +
+                            '!tagall - Mention semua member\n' +
+                            '!kick @user - Kick member\n' +
+                            '!add @user - Tambah member\n' +
+                            '!setdesc [teks] - Ganti deskripsi\n' +
+                            '!setname [nama] - Ganti nama grup\n' +
+                            '!leave - Keluar dari grup\n\n' +
+                            '_Made with ❤️ by WhatsApp Bot Pro_' 
                     });
-                } else if (command === 'hidetag' || command === 'tagall') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    const metadata = await sock.groupMetadata(chatId);
+                }
+
+                // ==========================================
+                // 4. OWNER
+                // ==========================================
+                else if (command === 'owner') {
+                    await sock.sendMessage(chatId, { 
+                        text: '👨‍💻 *Owner Bot*\n\n' +
+                            '📱 Nomor: ' + OWNER_NUMBER + '\n' +
+                            '💬 Hubungi untuk lapor bug atau request fitur.' 
+                    });
+                }
+
+                // ==========================================
+                // 5. HIDETAG / TAGALL
+                // ==========================================
+                else if (command === 'hidetag' || command === 'tagall') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
+                    }
+
+                    const groupMetadata = await sock.groupMetadata(chatId);
                     const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
-                    if (!metadata.participants.find(p => p.id === botId)?.admin) {
-                        return sock.sendMessage(chatId, { text: '❌ Bot harus ADMIN!' });
+                    const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+
+                    if (!isBotAdmin) {
+                        await sock.sendMessage(chatId, { text: '❌ Bot harus jadi ADMIN dulu!' });
+                        return;
                     }
-                    const mentions = metadata.participants.map(p => p.id);
+
+                    const mentions = groupMetadata.participants.map(p => p.id);
+                    const textMsg = args.join(' ') || '👥 *HIDETAG*\n\nSemua member telah dipanggil! 📢';
+                    
                     await sock.sendMessage(chatId, { 
-                        text: args.join(' ') || '👥 HIDETAG!', 
-                        mentions 
+                        text: textMsg, 
+                        mentions: mentions 
                     });
-                } else if (command === 'kick') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
+                    console.log('✅ Hidetag di grup ' + groupMetadata.subject);
+                }
+
+                // ==========================================
+                // 6. KICK
+                // ==========================================
+                else if (command === 'kick') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
                     }
-                    const ctx = msg.message?.extendedTextMessage?.contextInfo;
-                    const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) return sock.sendMessage(chatId, { text: '❌ Tag user!' });
+
+                    const groupMetadata = await sock.groupMetadata(chatId);
+                    const senderInfo = groupMetadata.participants.find(p => p.id === sender);
+                    
+                    if (!senderInfo?.admin) {
+                        await sock.sendMessage(chatId, { text: '❌ Hanya ADMIN grup yang bisa pakai command ini!' });
+                        return;
+                    }
+
+                    const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
+                    const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+
+                    if (!isBotAdmin) {
+                        await sock.sendMessage(chatId, { text: '❌ Bot harus jadi ADMIN dulu!' });
+                        return;
+                    }
+
+                    const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+                    const mentioned = contextInfo?.mentionedJid || [];
+                    let target;
+
+                    if (mentioned.length > 0) {
+                        target = mentioned[0];
+                    } else if (contextInfo?.quotedMessage) {
+                        target = contextInfo.participant;
+                    }
+
+                    if (!target) {
+                        await sock.sendMessage(chatId, { text: '❌ Tag atau reply user yang mau di-kick!\nCara: !kick @user' });
+                        return;
+                    }
+
+                    if (target === sender) {
+                        await sock.sendMessage(chatId, { text: '❌ Gak bisa kick diri sendiri!' });
+                        return;
+                    }
+
                     if (target === OWNER_NUMBER + '@s.whatsapp.net') {
-                        return sock.sendMessage(chatId, { text: '❌ Gak bisa kick owner!' });
+                        await sock.sendMessage(chatId, { text: '❌ Gak bisa kick owner bot!' });
+                        return;
                     }
+
                     await sock.groupParticipantsUpdate(chatId, [target], 'remove');
-                    await sock.sendMessage(chatId, { text: `👢 @${target.split('@')[0]} di-kick!`, mentions: [target] });
-                } else if (command === 'add') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
+                    await sock.sendMessage(chatId, {
+                        text: '👢 *KICKED!*\n\n@' + target.split('@')[0] + ' telah ditendang!',
+                        mentions: [target]
+                    });
+                    console.log('✅ Kick @' + target.split('@')[0] + ' dari ' + groupMetadata.subject);
+                }
+
+                // ==========================================
+                // 7. ADD
+                // ==========================================
+                else if (command === 'add') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
                     }
-                    const ctx = msg.message?.extendedTextMessage?.contextInfo;
-                    const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) return sock.sendMessage(chatId, { text: '❌ Tag user!' });
+
+                    const groupMetadata = await sock.groupMetadata(chatId);
+                    const senderInfo = groupMetadata.participants.find(p => p.id === sender);
+                    
+                    if (!senderInfo?.admin) {
+                        await sock.sendMessage(chatId, { text: '❌ Hanya ADMIN grup yang bisa pakai command ini!' });
+                        return;
+                    }
+
+                    const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
+                    const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+
+                    if (!isBotAdmin) {
+                        await sock.sendMessage(chatId, { text: '❌ Bot harus jadi ADMIN dulu!' });
+                        return;
+                    }
+
+                    const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+                    const mentioned = contextInfo?.mentionedJid || [];
+                    let target;
+
+                    if (mentioned.length > 0) {
+                        target = mentioned[0];
+                    } else if (contextInfo?.quotedMessage) {
+                        target = contextInfo.participant;
+                    }
+
+                    if (!target) {
+                        await sock.sendMessage(chatId, { text: '❌ Tag user yang mau di-add!\nCara: !add @user' });
+                        return;
+                    }
+
                     await sock.groupParticipantsUpdate(chatId, [target], 'add');
-                    await sock.sendMessage(chatId, { text: `✅ @${target.split('@')[0]} di-add!`, mentions: [target] });
-                } else if (command === 'setdesc') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
+                    await sock.sendMessage(chatId, {
+                        text: '✅ *ADDED!*\n\n@' + target.split('@')[0] + ' telah ditambahkan ke grup!',
+                        mentions: [target]
+                    });
+                    console.log('✅ Add @' + target.split('@')[0] + ' ke ' + groupMetadata.subject);
+                }
+
+                // ==========================================
+                // 8. SETDESC (Ganti Deskripsi Grup)
+                // ==========================================
+                else if (command === 'setdesc') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
                     }
+
+                    const groupMetadata = await sock.groupMetadata(chatId);
+                    const senderInfo = groupMetadata.participants.find(p => p.id === sender);
+                    
+                    if (!senderInfo?.admin) {
+                        await sock.sendMessage(chatId, { text: '❌ Hanya ADMIN grup yang bisa pakai command ini!' });
+                        return;
+                    }
+
+                    const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
+                    const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+
+                    if (!isBotAdmin) {
+                        await sock.sendMessage(chatId, { text: '❌ Bot harus jadi ADMIN dulu!' });
+                        return;
+                    }
+
                     const newDesc = args.join(' ');
-                    if (!newDesc) return sock.sendMessage(chatId, { text: '❌ Masukkan deskripsi!' });
-                    await sock.groupUpdateDescription(chatId, newDesc);
-                    await sock.sendMessage(chatId, { text: `✅ Deskripsi diubah!\n${newDesc}` });
-                } else if (command === 'setname') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === sender)?.admin) {
-                        return sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
+                    if (!newDesc) {
+                        await sock.sendMessage(chatId, { text: '❌ Masukkan deskripsi baru!\nCara: !setdesc Deskripsi baru' });
+                        return;
                     }
+
+                    await sock.groupUpdateDescription(chatId, newDesc);
+                    await sock.sendMessage(chatId, { 
+                        text: '✅ *DESKRIPSI DIUBAH!*\n\n📝 Deskripsi baru: ' + newDesc 
+                    });
+                    console.log('✅ Deskripsi grup ' + groupMetadata.subject + ' diubah');
+                }
+
+                // ==========================================
+                // 9. SETNAME (Ganti Nama Grup)
+                // ==========================================
+                else if (command === 'setname') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
+                    }
+
+                    const groupMetadata = await sock.groupMetadata(chatId);
+                    const senderInfo = groupMetadata.participants.find(p => p.id === sender);
+                    
+                    if (!senderInfo?.admin) {
+                        await sock.sendMessage(chatId, { text: '❌ Hanya ADMIN grup yang bisa pakai command ini!' });
+                        return;
+                    }
+
+                    const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
+                    const isBotAdmin = groupMetadata.participants.find(p => p.id === botId)?.admin;
+
+                    if (!isBotAdmin) {
+                        await sock.sendMessage(chatId, { text: '❌ Bot harus jadi ADMIN dulu!' });
+                        return;
+                    }
+
                     const newName = args.join(' ');
-                    if (!newName) return sock.sendMessage(chatId, { text: '❌ Masukkan nama!' });
+                    if (!newName) {
+                        await sock.sendMessage(chatId, { text: '❌ Masukkan nama baru!\nCara: !setname Nama grup baru' });
+                        return;
+                    }
+
                     await sock.groupUpdateSubject(chatId, newName);
-                    await sock.sendMessage(chatId, { text: `✅ Nama grup diubah!\n${newName}` });
-                } else if (command === 'leave') {
-                    if (!isGroup) return sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                    await sock.sendMessage(chatId, { text: '👋 Bye!' });
+                    await sock.sendMessage(chatId, { 
+                        text: '✅ *NAMA GRUP DIUBAH!*\n\n📛 Nama baru: ' + newName 
+                    });
+                    console.log('✅ Nama grup diubah menjadi ' + newName);
+                }
+
+                // ==========================================
+                // 10. LEAVE (Keluar dari Grup)
+                // ==========================================
+                else if (command === 'leave') {
+                    if (!isGroup) {
+                        await sock.sendMessage(chatId, { text: '❌ Command ini hanya bisa dipakai di GRUP!' });
+                        return;
+                    }
+
+                    await sock.sendMessage(chatId, { text: '👋 Bot keluar dari grup ini. Bye bye!' });
                     await sock.groupLeave(chatId);
-                } else {
-                    await sock.sendMessage(chatId, { text: `❌ Command *${command}* tidak dikenal!\nKetik *!menu*` });
+                    console.log('✅ Bot keluar dari grup');
+                }
+
+                // ==========================================
+                // 11. DEFAULT
+                // ==========================================
+                else {
+                    await sock.sendMessage(chatId, { 
+                        text: '❌ Command *' + command + '* tidak dikenal!\nKetik *!menu* untuk lihat daftar command.' 
+                    });
                 }
 
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                console.error('❌ Error processing message:', error.message);
+                try {
+                    await sock.sendMessage(msg.key.remoteJid, { 
+                        text: '❌ Error: ' + error.message 
+                    });
+                } catch (e) {}
             }
         });
 
@@ -220,7 +414,9 @@ async function startBot() {
     }
 }
 
-// ===== API =====
+// ==========================================
+// API: PAIRING CODE
+// ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
@@ -229,7 +425,7 @@ app.post('/api/pair', async (req, res) => {
         }
 
         const cleanNumber = phoneNumber.replace(/\D/g, '');
-        console.log(`📱 Request pairing untuk: ${cleanNumber}`);
+        console.log('📱 Pairing untuk: ' + cleanNumber);
 
         if (!sock) {
             await startBot();
@@ -237,13 +433,13 @@ app.post('/api/pair', async (req, res) => {
         }
 
         if (!sock || !sock.authState) {
-            return res.status(500).json({ error: 'Bot belum siap, coba lagi' });
+            return res.status(500).json({ error: 'Bot belum siap' });
         }
 
         if (!sock.authState.creds.registered) {
             const code = await sock.requestPairingCode(cleanNumber);
             pairingCode = code;
-            console.log(`✅ PAIRING CODE: ${code}`);
+            console.log('✅ PAIRING CODE: ' + code);
             return res.json({
                 success: true,
                 pairingCode: code,
@@ -289,21 +485,16 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
-// ===== START =====
-const server = app.listen(0, '0.0.0.0', () => {
-    const actualPort = server.address().port;
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`🌐 SERVER STARTED!`);
-    console.log(`📡 Port: ${actualPort}`);
-    console.log(`🔗 https://tes-production-3a99.up.railway.app`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+// ==========================================
+// START SERVER
+// ==========================================
+const server = app.listen(0, '0.0.0.0', function() {
+    const port = server.address().port;
+    console.log('🌐 SERVER STARTED!');
+    console.log('📡 Port: ' + port);
+    console.log('🔗 https://tes-production-3a99.up.railway.app');
     startBot();
 });
 
-process.on('SIGINT', () => {
-    process.exit(0);
-});
-
-process.on('SIGTERM', () => {
-    process.exit(0);
-});
+process.on('SIGINT', function() { process.exit(0); });
+process.on('SIGTERM', function() { process.exit(0); });
