@@ -8,11 +8,7 @@ app.use(express.json());
 app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
-
-// ==========================================
-// PAKAI PORT DARI RAILWAY (JANGAN PAKE 8080!)
-// ==========================================
-const PORT = process.env.PORT || 3000;
+const PORT = 8081;
 
 let sock = null;
 
