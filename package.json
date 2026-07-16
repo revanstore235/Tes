@@ -1,14 +1,27 @@
 {
-  "name": "botwa",
-  "version": "4.0.0",
-  "description": "WhatsApp Bot - Pairing Code (Railway Ready)",
+  "name": "botwa-fixed",
+  "version": "4.1.0",
+  "description": "WhatsApp Bot with Pairing Code - Fixed & Production Ready",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "node index.js"
   },
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "baileys",
+    "automation"
+  ],
+  "author": "Developer",
+  "license": "MIT",
   "dependencies": {
     "@whiskeysockets/baileys": "^6.7.18",
     "@hapi/boom": "^10.0.1",
     "qrcode-terminal": "^0.12.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
