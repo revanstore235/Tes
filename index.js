@@ -3,11 +3,11 @@ const {
     useMultiFileAuthState, 
     DisconnectReason,
     fetchLatestBaileysVersion,
-    Browsers,
-    makeInMemoryStore
+    Browsers
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
+const QRCode = require('qrcode-terminal');
 const { setting } = require('./setting.js');
 const { hidetag, kick, info, ping } = require('./handler.js');
 
@@ -31,58 +31,33 @@ async function startBot() {
         const sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
-            browser: ['KickBot', 'Chrome', '120.0.0.0'], // PAKAI FORMAT INI!
+            printQRInTerminal: true, // QR CODE AKTIF!
+            browser: ['KickBot', 'Chrome', '120.0.0.0'],
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
             shouldSyncHistoryMessage: () => false,
             defaultQueryTimeoutMs: 60000,
-            keepAliveIntervalMs: 60000,
-            getMessage: async (key) => {
-                return null;
-            }
+            keepAliveIntervalMs: 60000
         });
 
-        // ===== PAIRING CODE DENGAN CARA YANG BENER =====
-        await sleep(2000);
-
-        if (!sock.authState.creds.registered) {
-            console.log('📱 Meminta Pairing Code...\n');
-            
-            try {
-                const phoneNumber = setting.ownerNumber.split('@')[0];
-                console.log(`📞 Nomor: ${phoneNumber}`);
-                
-                // REQUEST PAIRING CODE
-                const code = await sock.requestPairingCode(phoneNumber);
-                
-                if (code) {
-                    console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                    console.log(`✅ PAIRING CODE: *${code}*`);
-                    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
-                    console.log('\n📱 CARA PAIRING:');
-                    console.log('1️⃣ Buka WhatsApp di HP');
-                    console.log('2️⃣ Tap ⋮ (3 titik) > Perangkat Tertaut');
-                    console.log('3️⃣ Tap "Tautkan Perangkat"');
-                    console.log('4️⃣ Pilih "Tautkan dengan Nomor Telepon"');
-                    console.log(`5️⃣ Masukkan kode: *${code}*`);
-                    console.log('\n⏳ Tunggu koneksi...\n');
-                }
-                
-            } catch (pairingError) {
-                console.error('❌ Gagal mendapatkan pairing code:', pairingError.message);
-                console.log('🔄 Coba lagi dalam 5 detik...');
-                await sleep(5000);
-                process.exit(1);
-            }
-        } else {
-            console.log('✅ Session ditemukan! Menghubungkan...\n');
-        }
-
-        // ===== CONNECTION HANDLER =====
+        // ===== QR CODE HANDLER =====
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+            const { connection, lastDisconnect, qr } = update;
+
+            // KALO QR CODE MUNCUL, TAMPILIN!
+            if (qr) {
+                console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('📱 SCAN QR CODE INI!');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+                QRCode.generate(qr, { small: true });
+                console.log('\n📱 CARA SCAN:');
+                console.log('1️⃣ Buka WhatsApp di HP');
+                console.log('2️⃣ Tap ⋮ (3 titik) > Perangkat Tertaut');
+                console.log('3️⃣ Tap "Tautkan Perangkat"');
+                console.log('4️⃣ Scan QR Code di terminal ini');
+                console.log('\n⏳ Tunggu koneksi...\n');
+            }
 
             if (connection === 'open') {
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
