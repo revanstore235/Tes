@@ -10,7 +10,6 @@ app.use(express.static('public'));
 const OWNER_NUMBER = '6281284406156';
 
 let sock = null;
-let serverPort = 0;
 
 app.post('/api/pair', async (req, res) => {
     try {
@@ -66,9 +65,11 @@ app.post('/api/pair', async (req, res) => {
 });
 
 app.get('/api/status', (req, res) => {
+    // ===== FIX: PAKE authState.creds.me.id =====
+    const botId = sock?.authState?.creds?.me?.id || null;
     res.json({
         status: sock ? 'connected' : 'disconnected',
-        botNumber: sock ? sock.user.id : null
+        botNumber: botId
     });
 });
 
@@ -117,7 +118,7 @@ async function startBot() {
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
                 console.log('✅ BOT CONNECTED!');
-                console.log('📱 Nomor:', sock.user.id);
+                console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
             }
             if (connection === 'close') {
                 const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
@@ -152,7 +153,7 @@ async function startBot() {
                     await sock.sendMessage(chatId, { text: '🏓 Pong!' });
                 } else if (command === 'info') {
                     await sock.sendMessage(chatId, {
-                        text: '🤖 *Bot WhatsApp Pro*\n📱 ' + sock.user.id + '\n👨‍💻 Owner: ' + OWNER_NUMBER
+                        text: '🤖 *Bot WhatsApp Pro*\n📱 ' + (sock.authState.creds.me?.id || 'Unknown') + '\n👨‍💻 Owner: ' + OWNER_NUMBER
                     });
                 } else if (command === 'menu') {
                     await sock.sendMessage(chatId, {
@@ -164,8 +165,9 @@ async function startBot() {
                         return;
                     }
                     const metadata = await sock.groupMetadata(chatId);
-                    const botId = sock.user.id.replace(/:.*/, '') + '@s.whatsapp.net';
-                    if (!metadata.participants.find(p => p.id === botId)?.admin) {
+                    const botId = sock.authState.creds.me?.id || '';
+                    const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
+                    if (!isBotAdmin) {
                         await sock.sendMessage(chatId, { text: '❌ Bot harus ADMIN!' });
                         return;
                     }
@@ -263,12 +265,8 @@ async function startBot() {
     }
 }
 
-// ==========================================
-// PAKAI PORT RANDOM (0) + TAMPILIN PORT NYA!
-// ==========================================
-const server = app.listen(0, '0.0.0.0', () => {
-    serverPort = server.address().port;
-    console.log('🌐 Server running on port', serverPort);
+app.listen(process.env.PORT || 3000, '0.0.0.0', () => {
+    console.log('🌐 Server started on Railway!');
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
 });
