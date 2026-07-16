@@ -1,13 +1,12 @@
 const setting = {
     botName: 'KickBot',
-    version: '4.1.0',
+    version: '4.0.0',
     prefix: '!',
-    ownerNumber: '6281284406155@s.whatsapp.net',  // FIXED: nomor owner yg benar
-    botNumber: '6283180391763',                    // Nomor WhatsApp yang akan dijadikan bot (untuk pairing)
+    ownerNumber: '6281284406155@s.whatsapp.net',
+    botNumber: '6283180391763',
     ownerName: 'Developer',
     sessionPath: './session',
     reconnectDelay: 5000,
-    connectTimeoutMs: 20000,
     cooldowns: {
         hidetag: 10,
         kick: 5,
