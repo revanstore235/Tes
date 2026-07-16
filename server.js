@@ -9,8 +9,8 @@ app.use(express.static('public'));
 
 const OWNER_NUMBER = '6281284406156';
 
-// ===== PORT 33567 =====
-const PORT = 33567;
+// ===== PAKAI PORT DARI RAILWAY! =====
+const PORT = process.env.PORT || 3000;
 
 let sock = null;
 
