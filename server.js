@@ -2,6 +2,7 @@ const express = require('express');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
+const QRCode = require('qrcode-terminal');
 
 const app = express();
 app.use(express.json());
@@ -35,18 +36,18 @@ app.post('/api/pair', async (req, res) => {
 
         console.log('📦 Baileys v' + version.join('.'));
 
+        // ===== HAPUS mobile: true! =====
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            mobile: true
+            shouldSyncHistoryMessage: () => false
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -60,6 +61,16 @@ app.post('/api/pair', async (req, res) => {
                 botNumber: sock.user.id
             });
         }
+
+        // ===== QR CODE FALLBACK =====
+        sock.ev.on('connection.update', (update) => {
+            if (update.qr) {
+                console.log('\n📱 SCAN QR CODE INI:');
+                QRCode.generate(update.qr, { small: true });
+                console.log('\n📱 Buka WhatsApp > Perangkat Tertaut > Tautkan Perangkat');
+                console.log('📱 Scan QR Code di terminal ini\n');
+            }
+        });
 
         const code = await sock.requestPairingCode(clean);
         console.log('✅ PAIRING CODE:', code);
@@ -111,24 +122,32 @@ async function startBot() {
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
 
+        // ===== HAPUS mobile: true! =====
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            mobile: true
+            shouldSyncHistoryMessage: () => false
         });
 
         sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                console.log('\n📱 SCAN QR CODE INI:');
+                QRCode.generate(qr, { small: true });
+                console.log('\n📱 Buka WhatsApp > Perangkat Tertaut > Tautkan Perangkat');
+                console.log('📱 Scan QR Code di terminal ini\n');
+            }
+
             if (connection === 'open') {
                 console.log('✅ BOT CONNECTED!');
                 console.log('📱 Nomor:', sock.user.id);
