@@ -9,38 +9,48 @@ const {
 } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// ==========================================
+// MIDDLEWARE
+// ==========================================
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// ========================================
-// ===== NOMOR OWNER (GANTI DI SINI!) =====
-// ========================================
-const OWNER_NUMBER = '6281284406156'; // ⚠️ GANTI PAKE NOMOR LU!
-// ========================================
-
+// ==========================================
+// KONFIGURASI
+// ==========================================
+const OWNER_NUMBER = '6281284406156'; // ⚠️ GANTI DENGAN NOMOR LU!
 const SESSION_PATH = './session';
+
 let sock = null;
 let pairingCode = null;
 let botStatus = 'disconnected';
 let botNumber = null;
 
+// ==========================================
+// START BOT
+// ==========================================
 async function startBot() {
     try {
+        // Hapus session lama
         if (fs.existsSync(SESSION_PATH)) {
             fs.rmSync(SESSION_PATH, { recursive: true, force: true });
+            console.log('🗑️ Session lama dihapus');
         }
         fs.mkdirSync(SESSION_PATH, { recursive: true });
 
+        // Load auth state
         const { state, saveCreds } = await useMultiFileAuthState(SESSION_PATH);
         const { version } = await fetchLatestBaileysVersion();
 
         console.log(`📦 Baileys v${version.join('.')}`);
 
+        // Buat socket
         sock = makeWASocket({
             version,
             auth: state,
@@ -52,7 +62,13 @@ async function startBot() {
             defaultQueryTimeoutMs: 60000,
             logger: {
                 level: 'silent',
-                child: () => ({ trace: () => {}, debug: () => {}, info: () => {}, warn: () => {}, error: () => {} })
+                child: () => ({ 
+                    trace: () => {}, 
+                    debug: () => {}, 
+                    info: () => {}, 
+                    warn: () => {}, 
+                    error: () => {} 
+                })
             },
             markOnlineOnConnect: true,
             syncFullHistory: false,
@@ -60,6 +76,9 @@ async function startBot() {
             shouldSyncHistoryMessage: () => false,
         });
 
+        // ==========================================
+        // CONNECTION HANDLER
+        // ==========================================
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
 
@@ -68,7 +87,8 @@ async function startBot() {
             if (connection === 'open') {
                 botStatus = 'connected';
                 botNumber = sock.user.id;
-                console.log(`✅ BOT CONNECTED! ${botNumber}`);
+                console.log(`✅ BOT CONNECTED!`);
+                console.log(`📱 Nomor: ${botNumber}`);
                 console.log('📨 Bot siap menerima pesan!\n');
             }
 
@@ -91,17 +111,28 @@ async function startBot() {
             }
         });
 
+        // Save credentials
         sock.ev.on('creds.update', saveCreds);
 
-        // ===== MESSAGE HANDLER =====
+        // ==========================================
+        // MESSAGE HANDLER
+        // ==========================================
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
                 if (!msg.message || msg.key.fromMe) return;
 
+                // Ambil teks pesan
                 let text = '';
-                if (msg.message.conversation) text = msg.message.conversation;
-                else if (msg.message.extendedTextMessage) text = msg.message.extendedTextMessage.text || '';
+                if (msg.message.conversation) {
+                    text = msg.message.conversation;
+                } else if (msg.message.extendedTextMessage) {
+                    text = msg.message.extendedTextMessage.text || '';
+                } else if (msg.message.imageMessage) {
+                    text = msg.message.imageMessage.caption || '';
+                } else if (msg.message.videoMessage) {
+                    text = msg.message.videoMessage.caption || '';
+                }
 
                 if (!text.startsWith('!')) return;
 
@@ -112,23 +143,49 @@ async function startBot() {
                 const sender = msg.key.participant || msg.key.remoteJid;
                 console.log(`📨 [${command}] dari ${sender}`);
 
+                // ===== COMMANDS =====
                 if (command === 'ping') {
-                    await sock.sendMessage(msg.key.remoteJid, { text: '🏓 Pong! ⚡' + (Date.now() - msg.messageTimestamp*1000) + 'ms' });
-                } else if (command === 'info') {
+                    const start = Date.now();
+                    await sock.sendMessage(msg.key.remoteJid, { text: '🏓 Pong!' });
+                    const latency = Date.now() - start;
                     await sock.sendMessage(msg.key.remoteJid, { 
-                        text: `🤖 *Bot WhatsApp Pro*\n📱 Nomor: ${sock.user.id}\n📡 Status: Online ✅\n⏱️ Uptime: ${Math.floor(process.uptime())} detik` 
+                        text: `✅ Online!\n⏱️ ${latency}ms` 
                     });
-                } else if (command === 'menu') {
+                }
+                else if (command === 'info') {
                     await sock.sendMessage(msg.key.remoteJid, { 
-                        text: `📋 *MENU BOT*\n\n!ping - Test koneksi\n!info - Info bot\n!menu - Menu ini\n!sticker - Sticker (coming soon)` 
+                        text: `🤖 *Bot WhatsApp Pro*\n\n` +
+                            `📱 Nomor: ${sock.user.id}\n` +
+                            `📡 Status: Online ✅\n` +
+                            `⏱️ Uptime: ${Math.floor(process.uptime())} detik\n` +
+                            `👨‍💻 Owner: ${OWNER_NUMBER}\n\n` +
+                            `Made with ❤️ by WhatsApp Bot Pro` 
                     });
-                } else {
+                }
+                else if (command === 'menu') {
+                    await sock.sendMessage(msg.key.remoteJid, { 
+                        text: `📋 *MENU BOT*\n\n` +
+                            `!ping - Test koneksi\n` +
+                            `!info - Info bot\n` +
+                            `!menu - Menu ini\n` +
+                            `!owner - Info owner\n` +
+                            `\n_Made with ❤️_` 
+                    });
+                }
+                else if (command === 'owner') {
+                    await sock.sendMessage(msg.key.remoteJid, { 
+                        text: `👨‍💻 *Owner Bot*\n\n` +
+                            `Nomor: ${OWNER_NUMBER}\n` +
+                            `Hubungi untuk lapor bug atau request fitur.` 
+                    });
+                }
+                else {
                     await sock.sendMessage(msg.key.remoteJid, { 
                         text: `❌ Command *${command}* tidak dikenal!\nKetik *!menu* untuk lihat daftar command.` 
                     });
                 }
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                console.error('❌ Error processing message:', error.message);
             }
         });
 
@@ -136,30 +193,42 @@ async function startBot() {
 
     } catch (error) {
         console.error('❌ Fatal error:', error.message);
+        console.log('🔄 Restart dalam 5 detik...');
         setTimeout(startBot, 5000);
     }
 }
 
-// ===== API: PAIRING =====
+// ==========================================
+// API: PAIRING CODE
+// ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
+        
         if (!phoneNumber) {
-            return res.status(400).json({ error: 'Nomor HP wajib diisi!' });
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Nomor HP wajib diisi!' 
+            });
         }
 
         const cleanNumber = phoneNumber.replace(/\D/g, '');
         console.log(`📱 Request pairing untuk: ${cleanNumber}`);
 
+        // Pastikan bot jalan
         if (!sock) {
             await startBot();
             await new Promise(resolve => setTimeout(resolve, 5000));
         }
 
         if (!sock || !sock.authState) {
-            return res.status(500).json({ error: 'Bot belum siap, coba lagi' });
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Bot belum siap, coba lagi' 
+            });
         }
 
+        // Cek apakah udah terdaftar
         if (!sock.authState.creds.registered) {
             const code = await sock.requestPairingCode(cleanNumber);
             pairingCode = code;
@@ -182,15 +251,18 @@ app.post('/api/pair', async (req, res) => {
         }
 
     } catch (error) {
-        console.error('❌ Error:', error.message);
+        console.error('❌ Error pairing:', error.message);
         return res.status(500).json({
+            success: false,
             error: 'Gagal mendapatkan pairing code',
             detail: error.message
         });
     }
 });
 
-// ===== API: STATUS =====
+// ==========================================
+// API: CEK STATUS
+// ==========================================
 app.get('/api/status', (req, res) => {
     res.json({
         status: botStatus,
@@ -199,7 +271,9 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// ===== API: RESET =====
+// ==========================================
+// API: RESET BOT
+// ==========================================
 app.post('/api/reset', async (req, res) => {
     try {
         if (sock) {
@@ -208,31 +282,53 @@ app.post('/api/reset', async (req, res) => {
         }
         botStatus = 'disconnected';
         pairingCode = null;
+        
         if (fs.existsSync(SESSION_PATH)) {
             fs.rmSync(SESSION_PATH, { recursive: true, force: true });
         }
+        
         console.log('🔄 Bot direset!');
         setTimeout(startBot, 3000);
-        res.json({ success: true, message: 'Bot direset! Tunggu 5 detik.' });
+        
+        res.json({ 
+            success: true, 
+            message: 'Bot direset! Tunggu 5 detik.' 
+        });
     } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ===== START =====
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🌐 Server running on port ${PORT}`);
-    console.log(`🔗 Buka: http://localhost:${PORT}`);
-    startBot();
-}).on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.log(`⚠️ Port ${PORT} sibuk, coba port lain...`);
-        const server = app.listen(0, '0.0.0.0', () => {
-            console.log(`🌐 Server running on port ${server.address().port}`);
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
         });
     }
 });
 
+// ==========================================
+// START SERVER
+// ==========================================
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🌐 SERVER STARTED!');
+    console.log(`📡 Port: ${PORT}`);
+    console.log(`🔗 URL: http://localhost:${PORT}`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
+    startBot();
+});
+
+// Error handling port
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log(`⚠️ Port ${PORT} sibuk, coba port lain...`);
+        const newServer = app.listen(0, '0.0.0.0', () => {
+            console.log(`🌐 Server running on port ${newServer.address().port}`);
+        });
+    } else {
+        console.error('❌ Server error:', err);
+    }
+});
+
+// ==========================================
+// GRACEFUL SHUTDOWN
+// ==========================================
 process.on('SIGINT', () => {
     console.log('\n👋 Server dimatikan...');
     process.exit(0);
