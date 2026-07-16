@@ -20,7 +20,7 @@ app.use(express.static('public'));
 // ==========================================
 // KONFIGURASI
 // ==========================================
-const OWNER_NUMBER = '6281284406156'; // GANTI DENGAN NOMOR LU!
+const OWNER_NUMBER = '6281284406156'; // ⚠️ GANTI DENGAN NOMOR LU!
 const SESSION_PATH = './session';
 
 let sock = null;
@@ -29,7 +29,7 @@ let botStatus = 'disconnected';
 let botNumber = null;
 
 // ==========================================
-// START BOT
+// START BOT (FIXED - TANPA LOGGER!)
 // ==========================================
 async function startBot() {
     try {
@@ -44,30 +44,23 @@ async function startBot() {
 
         console.log(`📦 Baileys v${version.join('.')}`);
 
+        // ===== PAKAI CONFIG YANG PALING SIMPLE! =====
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: Browsers.macOS('Desktop'), // PAKAI INI!
+            browser: ['KickBot', 'Chrome', '120.0.0.0'],
+            // HAPUS SEMUA logger!
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 15000,
             defaultQueryTimeoutMs: 60000,
-            logger: {
-                level: 'silent',
-                child: () => ({ 
-                    trace: () => {}, 
-                    debug: () => {}, 
-                    info: () => {}, 
-                    warn: () => {}, 
-                    error: () => {} 
-                })
-            },
             markOnlineOnConnect: true,
             syncFullHistory: false,
             generateHighQualityLinkPreview: true,
             shouldSyncHistoryMessage: () => false,
         });
 
+        // ===== CONNECTION HANDLER =====
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect } = update;
 
@@ -76,8 +69,10 @@ async function startBot() {
             if (connection === 'open') {
                 botStatus = 'connected';
                 botNumber = sock.user.id;
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log(`✅ BOT CONNECTED!`);
                 console.log(`📱 Nomor: ${botNumber}`);
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
                 console.log('📨 Bot siap menerima pesan!\n');
             }
 
@@ -91,7 +86,7 @@ async function startBot() {
                     if (fs.existsSync(SESSION_PATH)) {
                         fs.rmSync(SESSION_PATH, { recursive: true, force: true });
                     }
-                    console.log('🔄 Restart bot...');
+                    console.log('🔄 Restart bot dalam 5 detik...');
                     setTimeout(startBot, 5000);
                 } else {
                     console.log(`🔄 Reconnect dalam 5s...`);
@@ -102,6 +97,7 @@ async function startBot() {
 
         sock.ev.on('creds.update', saveCreds);
 
+        // ===== MESSAGE HANDLER =====
         sock.ev.on('messages.upsert', async ({ messages }) => {
             try {
                 const msg = messages[0];
@@ -139,7 +135,7 @@ async function startBot() {
                     });
                 }
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                console.error('❌ Error processing message:', error.message);
             }
         });
 
@@ -147,18 +143,23 @@ async function startBot() {
 
     } catch (error) {
         console.error('❌ Fatal error:', error.message);
+        console.log('🔄 Restart dalam 5 detik...');
         setTimeout(startBot, 5000);
     }
 }
 
 // ==========================================
-// API
+// API: PAIRING CODE
 // ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phoneNumber } = req.body;
+        
         if (!phoneNumber) {
-            return res.status(400).json({ success: false, error: 'Nomor HP wajib diisi!' });
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Nomor HP wajib diisi!' 
+            });
         }
 
         const cleanNumber = phoneNumber.replace(/\D/g, '');
@@ -170,7 +171,10 @@ app.post('/api/pair', async (req, res) => {
         }
 
         if (!sock || !sock.authState) {
-            return res.status(500).json({ success: false, error: 'Bot belum siap, coba lagi' });
+            return res.status(500).json({ 
+                success: false, 
+                error: 'Bot belum siap, coba lagi' 
+            });
         }
 
         if (!sock.authState.creds.registered) {
@@ -178,6 +182,7 @@ app.post('/api/pair', async (req, res) => {
             pairingCode = code;
             
             console.log(`✅ PAIRING CODE: ${code}`);
+            console.log(`📱 Masukkan kode di WhatsApp nomor ${cleanNumber}`);
             
             return res.json({
                 success: true,
@@ -194,11 +199,18 @@ app.post('/api/pair', async (req, res) => {
         }
 
     } catch (error) {
-        console.error('❌ Error:', error.message);
-        return res.status(500).json({ success: false, error: error.message });
+        console.error('❌ Error pairing:', error.message);
+        return res.status(500).json({
+            success: false,
+            error: 'Gagal mendapatkan pairing code',
+            detail: error.message
+        });
     }
 });
 
+// ==========================================
+// API: CEK STATUS
+// ==========================================
 app.get('/api/status', (req, res) => {
     res.json({
         status: botStatus,
@@ -207,6 +219,9 @@ app.get('/api/status', (req, res) => {
     });
 });
 
+// ==========================================
+// API: RESET BOT
+// ==========================================
 app.post('/api/reset', async (req, res) => {
     try {
         if (sock) {
@@ -215,23 +230,35 @@ app.post('/api/reset', async (req, res) => {
         }
         botStatus = 'disconnected';
         pairingCode = null;
+        
         if (fs.existsSync(SESSION_PATH)) {
             fs.rmSync(SESSION_PATH, { recursive: true, force: true });
         }
+        
         console.log('🔄 Bot direset!');
         setTimeout(startBot, 3000);
-        res.json({ success: true, message: 'Bot direset!' });
+        
+        res.json({ 
+            success: true, 
+            message: 'Bot direset! Tunggu 5 detik.' 
+        });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        res.status(500).json({ 
+            success: false, 
+            error: error.message 
+        });
     }
 });
 
 // ==========================================
-// START
+// START SERVER
 // ==========================================
 app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🌐 Server running on port ${PORT}`);
-    console.log(`🔗 Buka: https://tes-production-3a99.up.railway.app`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('🌐 SERVER STARTED!');
+    console.log(`📡 Port: ${PORT}`);
+    console.log(`🔗 URL: https://tes-production-3a99.up.railway.app`);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     startBot();
 });
 
