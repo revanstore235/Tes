@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>🤖 WhatsApp Bot Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: #0a0a0a;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 30%, #f093fb 60%, #f5576c 100%);
+            background-size: 400% 400%;
+            animation: gradientMove 8s ease infinite;
+        }
+
+        @keyframes gradientMove {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .star {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: white;
+            border-radius: 50%;
+            animation: twinkle 2s ease-in-out infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.5); }
+        }
+
+        .orb {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.4;
+            z-index: 1;
+            pointer-events: none;
+            animation: orbFloat 12s ease-in-out infinite;
+        }
+        .orb-1 { width: 400px; height: 400px; background: #667eea; top: -100px; right: -100px; }
+        .orb-2 { width: 350px; height: 350px; background: #f093fb; bottom: -80px; left: -80px; animation-delay: 4s; }
+        .orb-3 { width: 250px; height: 250px; background: #f5576c; top: 50%; left: 50%; transform: translate(-50%, -50%); animation-delay: 8s; }
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        .container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 480px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border-radius: 32px;
+            padding: 35px 30px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            transition: all 0.4s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.6);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 20px;
+            font-size: 36px;
+            color: white;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+            animation: logoPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes logoPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4); }
+            50% { transform: scale(1.05); box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6); }
+        }
+
+        .header h1 {
+            font-size: 26px;
+            font-weight: 800;
+            color: white;
+            letter-spacing: -0.5px;
+        }
+
+        .header h1 span {
+            background: linear-gradient(135deg, #f093fb, #f5576c);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 14px;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.06);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            margin-top: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            animation: dotPulse 1.5s ease-in-out infinite;
+        }
+        .status-dot.online { background: #4ade80; }
+        .status-dot.offline { background: #f87171; animation: none; }
+        .status-dot.waiting { background: #fbbf24; }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 16px 18px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.06);
+            color: white;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .input-group input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+            font-weight: 400;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.15);
+        }
+
+        .input-group button {
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
+        }
+
+        .input-group button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(102, 126, 234, 0.4);
+        }
+
+        .input-group button:active {
+            transform: scale(0.95);
+        }
+
+        .input-group button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        #result {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            margin-bottom: 20px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.5s ease;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        #result.success {
+            background: rgba(74, 222, 128, 0.08);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+
+        #result.failed {
+            background: rgba(248, 113, 113, 0.08);
+            border: 1px solid rgba(248, 113, 113, 0.2);
+        }
+
+        #result.loading {
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .status-icon {
+            font-size: 44px;
+            margin-bottom: 10px;
+        }
+
+        .status-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: white;
+        }
+
+        .status-detail {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-top: 4px;
+        }
+
+        .pairing-code {
+            font-size: 32px;
+            font-weight: 900;
+            color: #4ade80;
+            letter-spacing: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 12px 24px;
+            border-radius: 12px;
+            margin: 10px 0;
+            border: 2px dashed rgba(74, 222, 128, 0.3);
+            font-family: 'Inter', monospace;
+        }
+
+        .pairing-code small {
+            font-size: 12px;
+            font-weight: 400;
+            color: rgba(255, 255, 255, 0.3);
+            letter-spacing: 0;
+            display: block;
+            margin-top: 4px;
+        }
+
+        .info-box {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .info-box h3 {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-box h3 i {
+            font-size: 14px;
+        }
+
+        .info-box ol {
+            padding-left: 20px;
+            color: rgba(255, 255, 255, 0.5);
+            line-height: 2;
+            font-size: 13px;
+            font-weight: 400;
+        }
+
+        .info-box ol li::marker {
+            color: #667eea;
+            font-weight: 700;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 12px;
+            padding: 12px 18px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .status-bar .status-label {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        #botStatus {
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        #botStatus.online { color: #4ade80; }
+        #botStatus.offline { color: #f87171; }
+        #botStatus.waiting { color: #fbbf24; }
+
+        .btn-reset {
+            background: rgba(248, 113, 113, 0.1);
+            color: #f87171;
+            border: 1px solid rgba(248, 113, 113, 0.15);
+            border-radius: 10px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .btn-reset:hover {
+            background: rgba(248, 113, 113, 0.2);
+        }
+
+        @media (max-width: 500px) {
+            .card {
+                padding: 24px 18px;
+            }
+            .header h1 { font-size: 22px; }
+            .input-group {
+                flex-direction: column;
+            }
+            .input-group button {
+                width: 100%;
+                justify-content: center;
+            }
+            .pairing-code {
+                font-size: 26px;
+                padding: 10px 16px;
+                letter-spacing: 4px;
+            }
+            .status-bar {
+                flex-direction: column;
+                text-align: center;
+            }
+            .logo {
+                width: 60px;
+                height: 60px;
+                font-size: 28px;
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-animation"></div>
+    <div class="stars" id="stars"></div>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+
+    <div class="container">
+        <div class="card">
+
+            <div class="header">
+                <div class="logo">🤖</div>
+                <h1>WhatsApp <span>Bot</span></h1>
+                <p>Pairing Code Generator • Instan & Aman</p>
+                <div class="status-badge">
+                    <span class="status-dot waiting" id="statusDot"></span>
+                    <span id="statusBadgeText">Menunggu koneksi...</span>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <input type="text" id="phoneInput" placeholder="6281234567890" maxlength="15">
+                <button id="pairBtn" onclick="requestPairing()">
+                    <i class="fas fa-key"></i> Get Code
+                </button>
+            </div>
+
+            <div id="result">
+                <div class="status-icon">📱</div>
+                <div class="status-text">Masukkan nomor HP</div>
+                <div class="status-detail">Klik tombol untuk dapatkan pairing code</div>
+            </div>
+
+            <div class="info-box">
+                <h3><i class="fas fa-circle-info"></i> Cara Pairing</h3>
+                <ol>
+                    <li>Masukkan nomor HP yang mau jadi <b>BOT</b></li>
+                    <li>Klik <b>"Get Code"</b></li>
+                    <li>Buka WhatsApp di HP <b>NOMOR TERSEBUT</b></li>
+                    <li>Tap ⋮ → Perangkat Tertaut → Tautkan Perangkat</li>
+                    <li>Pilih <b>"Tautkan dengan Nomor Telepon"</b></li>
+                    <li>Masukkan kode yang muncul</li>
+                    <li><b style="color: #fbbf24;">⚠️ Kode valid 60 detik!</b></li>
+                </ol>
+            </div>
+
+            <div class="status-bar">
+                <div>
+                    <span class="status-label">📡 Status</span>
+                    <span id="botStatus" class="waiting">⏳ Menunggu...</span>
+                </div>
+                <button class="btn-reset" onclick="resetBot()">
+                    <i class="fas fa-rotate"></i> Reset Bot
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // ===== BINTANG =====
+        (function createStars() {
+            const container = document.getElementById('stars');
+            for (let i = 0; i < 80; i++) {
+                const star = document.createElement('div');
+                star.className = 'star';
+                star.style.left = Math.random() * 100 + '%';
+                star.style.top = Math.random() * 100 + '%';
+                star.style.animationDelay = Math.random() * 3 + 's';
+                star.style.width = (Math.random() * 2 + 1) + 'px';
+                star.style.height = star.style.width;
+                container.appendChild(star);
+            }
+        })();
+
+        let isPairing = false;
+
+        async function requestPairing() {
+            if (isPairing) return;
+            
+            const phoneInput = document.getElementById('phoneInput');
+            const phoneNumber = phoneInput.value.trim();
+            
+            if (!phoneNumber) {
+                alert('Masukkan nomor HP dulu!');
+                return;
+            }
+
+            const cleanNumber = phoneNumber.replace(/\D/g, '');
+            if (cleanNumber.length < 10) {
+                alert('Nomor HP tidak valid! Minimal 10 digit.');
+                return;
+            }
+
+            isPairing = true;
+            const btn = document.getElementById('pairBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
+            const resultBox = document.getElementById('result');
+            const statusIcon = resultBox.querySelector('.status-icon');
+            const statusText = resultBox.querySelector('.status-text');
+            const statusDetail = resultBox.querySelector('.status-detail');
+
+            resultBox.className = 'result-box loading';
+            statusIcon.textContent = '⏳';
+            statusText.textContent = 'Meminta Pairing Code...';
+            statusDetail.textContent = `Nomor: ${cleanNumber}`;
+
+            updateStatus('waiting', '⏳ Meminta kode...');
+
+            try {
+                const response = await fetch('/api/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phoneNumber: cleanNumber })
+                });
+
+                const data = await response.json();
+
+                if (data.success && data.pairingCode) {
+                    resultBox.className = 'result-box success';
+                    statusIcon.textContent = '✅';
+                    statusText.innerHTML = `
+                        PAIRING CODE
+                        <div class="pairing-code">
+                            ${data.pairingCode}
+                            <small>⚠️ Valid 60 detik</small>
+                        </div>
+                    `;
+                    statusDetail.textContent = `Nomor: ${data.phoneNumber}`;
+                    
+                    updateStatus('online', '🟢 Kode siap!');
+                    
+                } else if (data.success && data.message) {
+                    resultBox.className = 'result-box success';
+                    statusIcon.textContent = '✅';
+                    statusText.textContent = data.message;
+                    statusDetail.textContent = data.botNumber || '';
+                    updateStatus('online', '🟢 Bot Online');
+                    
+                } else {
+                    resultBox.className = 'result-box failed';
+                    statusIcon.textContent = '❌';
+                    statusText.textContent = 'Gagal!';
+                    statusDetail.textContent = data.error || data.detail || 'Coba lagi nanti';
+                    updateStatus('offline', '🔴 Gagal');
+                }
+
+            } catch (error) {
+                resultBox.className = 'result-box failed';
+                statusIcon.textContent = '❌';
+                statusText.textContent = 'Error!';
+                statusDetail.textContent = error.message;
+                updateStatus('offline', '🔴 Error');
+            }
+
+            isPairing = false;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-key"></i> Get Code';
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                if (data.status === 'connected') {
+                    updateStatus('online', `🟢 Online (${data.botNumber?.split('@')[0] || ''})`);
+                } else if (data.status === 'disconnected') {
+                    updateStatus('offline', '🔴 Offline');
+                } else {
+                    updateStatus('waiting', '⏳ Menunggu...');
+                }
+            } catch (error) {
+                console.error('Status check error:', error);
+            }
+        }
+
+        function updateStatus(type, text) {
+            const statusEl = document.getElementById('botStatus');
+            const dotEl = document.getElementById('statusDot');
+            const badgeEl = document.getElementById('statusBadgeText');
+            
+            statusEl.className = type;
+            statusEl.textContent = text;
+            
+            dotEl.className = 'status-dot ' + type;
+            
+            const labels = {
+                online: '🟢 Bot Online',
+                offline: '🔴 Bot Offline',
+                waiting: '⏳ Menunggu...'
+            };
+            badgeEl.textContent = labels[type] || text;
+        }
+
+        async function resetBot() {
+            if (confirm('Yakin mau reset bot? Session akan dihapus.')) {
+                try {
+                    const response = await fetch('/api/reset', { method: 'POST' });
+                    const data = await response.json();
+                    alert(data.message || 'Bot direset!');
+                    setTimeout(checkStatus, 3000);
+                } catch (error) {
+                    alert('Gagal reset: ' + error.message);
+                }
+            }
+        }
+
+        document.getElementById('phoneInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') requestPairing();
+        });
+
+        document.getElementById('phoneInput').addEventListener('input', function() {
+            this.value = this.value.replace(/\D/g, '');
+        });
+
+        setInterval(checkStatus, 5000);
+        checkStatus();
+
+        console.log('🤖 WhatsApp Bot Pro Loaded!');
+        console.log('🔗 Buat pairing code dengan masukin nomor HP!');
+    </script>
+
+</body>
+</html>
