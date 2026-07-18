@@ -38,7 +38,7 @@ app.post('/api/pair', async (req, res) => {
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: true,
+            printQRInTerminal: false,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
@@ -86,7 +86,6 @@ app.post('/api/pair', async (req, res) => {
             }
         });
 
-        // ===== PAIRING CODE (CUMAN KALO METHOD PAIRING) =====
         if (method === 'pairing' || !method) {
             try {
                 const code = await sock.requestPairingCode(clean);
@@ -106,7 +105,6 @@ app.post('/api/pair', async (req, res) => {
             }
         }
 
-        // ===== QR CODE (CUMAN KALO METHOD QR) =====
         if (method === 'qr') {
             const qrPromise = new Promise((resolve) => {
                 qrResolve = resolve;
@@ -190,7 +188,7 @@ async function startBot() {
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: true,
+            printQRInTerminal: false,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
