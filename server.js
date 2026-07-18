@@ -2,6 +2,7 @@ const express = require('express');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
+const QRCode = require('qrcode-terminal');
 const { setting } = require('./setting.js');
 const { ping, info, menu, stalk, hidetag, kick, add, setdesc, setname, leave, owner } = require('./main.js');
 
@@ -10,7 +11,12 @@ app.use(express.json());
 app.use(express.static('public'));
 
 let sock = null;
+let qrCodeData = null;
+let pairingCodeData = null;
 
+// ==========================================
+// API: PAIRING + QR CODE
+// ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phone } = req.body;
@@ -19,7 +25,8 @@ app.post('/api/pair', async (req, res) => {
         }
 
         const clean = phone.replace(/\D/g, '');
-        console.log('📱 Pairing:', clean);
+        console.log('📱 Request untuk:', clean);
+        console.log('📱 Metode: Pairing Code + QR Code');
 
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
@@ -34,7 +41,7 @@ app.post('/api/pair', async (req, res) => {
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
@@ -45,15 +52,65 @@ app.post('/api/pair', async (req, res) => {
         });
 
         sock.ev.on('creds.update', saveCreds);
-        await new Promise(r => setTimeout(r, 3000));
 
-        const code = await sock.requestPairingCode(clean);
-        console.log('✅ PAIRING CODE:', code);
+        // ===== QR CODE HANDLER =====
+        sock.ev.on('connection.update', async (update) => {
+            const { connection, lastDisconnect, qr } = update;
 
-        return res.json({
-            success: true,
-            code: code
+            if (qr) {
+                qrCodeData = qr;
+                console.log('\n📱 QR CODE GENERATED!');
+                QRCode.generate(qr, { small: true });
+                console.log('\n📱 SCAN QR CODE DI TERMINAL ATAU WEB!\n');
+            }
+
+            if (connection === 'open') {
+                console.log('✅ BOT CONNECTED!');
+                console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
+                qrCodeData = null;
+                pairingCodeData = null;
+            }
+
+            if (connection === 'close') {
+                const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                console.log('❌ Disconnected:', statusCode);
+                if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                    if (fs.existsSync('./session')) {
+                        fs.rmSync('./session', { recursive: true, force: true });
+                    }
+                }
+                setTimeout(startBot, 5000);
+            }
         });
+
+        // ===== PAIRING CODE =====
+        let code = null;
+        try {
+            code = await sock.requestPairingCode(clean);
+            pairingCodeData = code;
+            console.log('✅ PAIRING CODE:', code);
+        } catch (pairingError) {
+            console.log('⚠️ Pairing code error, lanjut pake QR Code');
+        }
+
+        // ===== KIRIM RESPONSE =====
+        const response = {
+            success: true,
+            code: code || null,
+            qr: qrCodeData || null,
+            message: code ? 'Pairing Code berhasil! Cepat masukkan ke WhatsApp.' : 'QR Code siap di scan!'
+        };
+
+        // KALO UDAH CONNECTED, KIRIM STATUS
+        if (sock?.authState?.creds?.registered) {
+            return res.json({
+                success: true,
+                message: 'Bot sudah terhubung!',
+                botNumber: sock.authState.creds.me?.id || 'Unknown'
+            });
+        }
+
+        return res.json(response);
 
     } catch (error) {
         console.error('❌ Error:', error.message);
@@ -68,7 +125,9 @@ app.get('/api/status', (req, res) => {
     const botId = sock?.authState?.creds?.me?.id || null;
     res.json({
         status: sock ? 'connected' : 'disconnected',
-        botNumber: botId
+        botNumber: botId,
+        qr: qrCodeData || null,
+        pairingCode: pairingCodeData || null
     });
 });
 
@@ -78,6 +137,8 @@ app.post('/api/reset', async (req, res) => {
             await sock.end();
             sock = null;
         }
+        qrCodeData = null;
+        pairingCodeData = null;
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
         }
@@ -101,7 +162,7 @@ async function startBot() {
         sock = makeWASocket({
             version,
             auth: state,
-            printQRInTerminal: false,
+            printQRInTerminal: true,
             browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
@@ -114,13 +175,25 @@ async function startBot() {
         sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect } = update;
+            const { connection, lastDisconnect, qr } = update;
+
+            if (qr) {
+                qrCodeData = qr;
+                console.log('\n📱 QR CODE GENERATED!');
+                QRCode.generate(qr, { small: true });
+                console.log('\n📱 SCAN QR CODE DI TERMINAL ATAU WEB!\n');
+            }
+
             if (connection === 'open') {
                 console.log('✅ BOT CONNECTED!');
                 console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
+                qrCodeData = null;
+                pairingCodeData = null;
             }
+
             if (connection === 'close') {
                 const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                console.log('❌ Disconnected:', statusCode);
                 if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
                     if (fs.existsSync('./session')) {
                         fs.rmSync('./session', { recursive: true, force: true });
@@ -138,8 +211,6 @@ async function startBot() {
                 let text = '';
                 if (msg.message.conversation) text = msg.message.conversation;
                 else if (msg.message.extendedTextMessage) text = msg.message.extendedTextMessage.text || '';
-                else if (msg.message.imageMessage) text = msg.message.imageMessage.caption || '';
-                else if (msg.message.videoMessage) text = msg.message.videoMessage.caption || '';
 
                 if (!text.startsWith(setting.prefix)) return;
 
@@ -147,15 +218,16 @@ async function startBot() {
                 const command = args.shift()?.toLowerCase();
                 if (!command) return;
 
-                const sender = msg.key.participant || msg.key.remoteJid;
-                console.log(`📨 [${command}] dari ${sender.split('@')[0]}`);
+                const chatId = msg.key.remoteJid;
+                const isGroup = chatId.endsWith('@g.us');
+
+                console.log(`📨 [${command}]`);
 
                 switch (command) {
                     case 'ping':
                         await ping(sock, msg);
                         break;
                     case 'info':
-                    case 'dev':
                         await info(sock, msg);
                         break;
                     case 'menu':
@@ -188,13 +260,13 @@ async function startBot() {
                         await owner(sock, msg);
                         break;
                     default:
-                        await sock.sendMessage(msg.key.remoteJid, {
-                            text: `❌ Command *${command}* tidak dikenal!\nKetik *${setting.prefix}menu* untuk daftar command.`
+                        await sock.sendMessage(chatId, {
+                            text: `❌ Command *${command}* tidak dikenal!\nKetik *${setting.prefix}menu*`
                         });
                         break;
                 }
             } catch (error) {
-                console.error('❌ Error processing message:', error.message);
+                console.error('❌ Error:', error.message);
             }
         });
 
@@ -205,7 +277,7 @@ async function startBot() {
 }
 
 // ==========================================
-// PAKAI PORT RANDOM (0) - PASTI GAK KEPAKE!
+// PORT RANDOM
 // ==========================================
 const server = app.listen(0, '0.0.0.0', () => {
     const actualPort = server.address().port;
@@ -214,7 +286,6 @@ const server = app.listen(0, '0.0.0.0', () => {
     startBot();
 });
 
-// ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
 server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
         console.log('⚠️ Port sibuk, coba port lain...');
