@@ -9,7 +9,6 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const PORT = process.env.PORT || 3000;
 let sock = null;
 
 app.post('/api/pair', async (req, res) => {
@@ -205,8 +204,22 @@ async function startBot() {
     }
 }
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
+// ==========================================
+// PAKAI PORT RANDOM (0) - PASTI GAK KEPAKE!
+// ==========================================
+const server = app.listen(0, '0.0.0.0', () => {
+    const actualPort = server.address().port;
+    console.log('🌐 Server running on port', actualPort);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
+});
+
+// ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
+server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+        console.log('⚠️ Port sibuk, coba port lain...');
+        const newServer = app.listen(0, '0.0.0.0', () => {
+            console.log('🌐 Server running on port', newServer.address().port);
+        });
+    }
 });
