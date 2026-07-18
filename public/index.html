@@ -25,6 +25,29 @@
         }
         h1 { text-align: center; color: #333; }
         .sub { text-align: center; color: #888; margin-bottom: 25px; }
+        
+        .method-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .method-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            background: white;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .method-btn.active {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+        
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
         .input-group input {
             flex: 1;
@@ -45,6 +68,7 @@
             cursor: pointer;
         }
         .input-group button:disabled { opacity: 0.6; }
+        
         #result {
             background: #f5f5f5;
             border-radius: 12px;
@@ -71,9 +95,11 @@
             display: inline-block;
         }
         .qr-container img { width: 180px; height: 180px; }
+        
         .status { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
         .status.online { color: #28a745; }
         .status.offline { color: #dc3545; }
+        
         .spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #667eea;
@@ -89,24 +115,39 @@
 <body>
     <div class="card">
         <h1>🤖 WhatsApp Bot</h1>
-        <p class="sub">Masukkan nomor HP untuk pairing</p>
+        <p class="sub">Pilih metode pairing</p>
+
+        <div class="method-selector">
+            <button class="method-btn active" id="btnPairing" onclick="setMethod('pairing')">🔑 Pairing Code</button>
+            <button class="method-btn" id="btnQR" onclick="setMethod('qr')">📱 QR Code</button>
+        </div>
 
         <div class="input-group">
             <input type="text" id="phone" placeholder="6281234567890" maxlength="15">
-            <button id="btn" onclick="pairing()">🔑 Get Code</button>
+            <button id="btn" onclick="request()">🔑 Get Code</button>
         </div>
 
         <div id="result">
-            <div style="color:#888;">Masukkan nomor HP</div>
+            <div style="color:#888;">Pilih metode dan masukkan nomor HP</div>
         </div>
 
         <div class="status" id="status">⏳ Menunggu...</div>
     </div>
 
     <script>
+        let currentMethod = 'pairing';
         let isPairing = false;
 
-        async function pairing() {
+        function setMethod(method) {
+            currentMethod = method;
+            document.getElementById('btnPairing').className = 'method-btn' + (method === 'pairing' ? ' active' : '');
+            document.getElementById('btnQR').className = 'method-btn' + (method === 'qr' ? ' active' : '');
+            
+            const btn = document.getElementById('btn');
+            btn.innerHTML = method === 'pairing' ? '🔑 Get Code' : '📱 Get QR';
+        }
+
+        async function request() {
             if (isPairing) return;
             
             const phone = document.getElementById('phone').value.trim();
@@ -125,13 +166,13 @@
             btn.innerHTML = '⏳ Loading...';
 
             const result = document.getElementById('result');
-            result.innerHTML = '<div class="spinner"></div><div style="color:#888;margin-top:10px;">Meminta pairing code...</div>';
+            result.innerHTML = '<div class="spinner"></div><div style="color:#888;margin-top:10px;">Meminta...</div>';
 
             try {
                 const res = await fetch('/api/pair', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: phone })
+                    body: JSON.stringify({ phone: phone, method: currentMethod })
                 });
                 const data = await res.json();
 
@@ -165,11 +206,11 @@
 
             isPairing = false;
             btn.disabled = false;
-            btn.innerHTML = '🔑 Get Code';
+            btn.innerHTML = currentMethod === 'pairing' ? '🔑 Get Code' : '📱 Get QR';
         }
 
         document.getElementById('phone').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') pairing();
+            if (e.key === 'Enter') request();
         });
         document.getElementById('phone').addEventListener('input', function() {
             this.value = this.value.replace(/\D/g, '');
