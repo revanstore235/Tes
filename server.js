@@ -1,4 +1,7 @@
-const express = require('express');
+from pathlib import Path
+import zipfile
+
+code = r'''const express = require('express');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
@@ -190,6 +193,10 @@ function waitForSocketReady(timeout = 30000) {
             return reject(new Error('Socket belum dibuat'));
         }
 
+        if (sock.user) {
+            return resolve(true);
+        }
+
         const timer = setTimeout(() => {
             sock.ev.off('connection.update', handler);
             reject(new Error('Timeout menunggu socket siap'));
@@ -305,20 +312,12 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(
-        '🌐 Server running on port',
-        server.address().port
-    );
-
+app.listen(PORT, '0.0.0.0', () => {
+    console.log('🌐 Server running');
     console.log(
         '🔗 https://' +
         (process.env.RAILWAY_STATIC_URL || 'railway.app')
     );
 
     startBot();
-});
-
-server.on('error', (err) => {
-    console.error('❌ Server error:', err);
 });
