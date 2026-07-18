@@ -14,9 +14,6 @@ let sock = null;
 let qrCodeData = null;
 let pairingCodeData = null;
 
-// ==========================================
-// API: PAIRING + QR CODE
-// ==========================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phone } = req.body;
@@ -26,7 +23,6 @@ app.post('/api/pair', async (req, res) => {
 
         const clean = phone.replace(/\D/g, '');
         console.log('📱 Request untuk:', clean);
-        console.log('📱 Metode: Pairing Code + QR Code');
 
         if (fs.existsSync('./session')) {
             fs.rmSync('./session', { recursive: true, force: true });
@@ -53,7 +49,6 @@ app.post('/api/pair', async (req, res) => {
 
         sock.ev.on('creds.update', saveCreds);
 
-        // ===== QR CODE HANDLER =====
         sock.ev.on('connection.update', async (update) => {
             const { connection, lastDisconnect, qr } = update;
 
@@ -61,7 +56,7 @@ app.post('/api/pair', async (req, res) => {
                 qrCodeData = qr;
                 console.log('\n📱 QR CODE GENERATED!');
                 QRCode.generate(qr, { small: true });
-                console.log('\n📱 SCAN QR CODE DI TERMINAL ATAU WEB!\n');
+                console.log('\n📱 Scan QR Code di terminal atau web!\n');
             }
 
             if (connection === 'open') {
@@ -83,7 +78,6 @@ app.post('/api/pair', async (req, res) => {
             }
         });
 
-        // ===== PAIRING CODE =====
         let code = null;
         try {
             code = await sock.requestPairingCode(clean);
@@ -93,15 +87,6 @@ app.post('/api/pair', async (req, res) => {
             console.log('⚠️ Pairing code error, lanjut pake QR Code');
         }
 
-        // ===== KIRIM RESPONSE =====
-        const response = {
-            success: true,
-            code: code || null,
-            qr: qrCodeData || null,
-            message: code ? 'Pairing Code berhasil! Cepat masukkan ke WhatsApp.' : 'QR Code siap di scan!'
-        };
-
-        // KALO UDAH CONNECTED, KIRIM STATUS
         if (sock?.authState?.creds?.registered) {
             return res.json({
                 success: true,
@@ -110,7 +95,12 @@ app.post('/api/pair', async (req, res) => {
             });
         }
 
-        return res.json(response);
+        return res.json({
+            success: true,
+            code: code || null,
+            qr: qrCodeData || null,
+            message: code ? 'Pairing Code berhasil!' : 'QR Code siap di scan!'
+        });
 
     } catch (error) {
         console.error('❌ Error:', error.message);
@@ -181,7 +171,7 @@ async function startBot() {
                 qrCodeData = qr;
                 console.log('\n📱 QR CODE GENERATED!');
                 QRCode.generate(qr, { small: true });
-                console.log('\n📱 SCAN QR CODE DI TERMINAL ATAU WEB!\n');
+                console.log('\n📱 Scan QR Code di terminal atau web!\n');
             }
 
             if (connection === 'open') {
@@ -276,9 +266,6 @@ async function startBot() {
     }
 }
 
-// ==========================================
-// PORT RANDOM
-// ==========================================
 const server = app.listen(0, '0.0.0.0', () => {
     const actualPort = server.address().port;
     console.log('🌐 Server running on port', actualPort);
