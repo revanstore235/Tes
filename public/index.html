@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -23,8 +23,8 @@
             width: 100%;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
         }
-        h1 { text-align: center; color: #333; margin-bottom: 5px; }
-        .sub { text-align: center; color: #888; margin-bottom: 25px; font-size: 14px; }
+        h1 { text-align: center; color: #333; }
+        .sub { text-align: center; color: #888; margin-bottom: 25px; }
         .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
         .input-group input {
             flex: 1;
@@ -50,7 +50,7 @@
             border-radius: 12px;
             padding: 20px;
             text-align: center;
-            min-height: 80px;
+            min-height: 100px;
             margin-bottom: 20px;
         }
         .code {
@@ -64,7 +64,14 @@
             margin: 10px 0;
             border: 2px dashed #28a745;
         }
-        .status { text-align: center; color: #666; font-size: 14px; }
+        .qr-container {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+        .qr-container img { width: 180px; height: 180px; }
+        .status { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
         .status.online { color: #28a745; }
         .status.offline { color: #dc3545; }
         .spinner {
@@ -129,14 +136,31 @@
                 const data = await res.json();
 
                 if (data.success && data.code) {
-                    result.innerHTML = '<div class="code">' + data.code + '</div><div style="color:#666;">Kode valid 60 detik!</div>';
+                    result.innerHTML = `
+                        <div style="font-size:44px;">✅</div>
+                        <div class="code">${data.code}</div>
+                        <div style="color:#666;font-size:13px;">Kode valid 60 detik!</div>
+                    `;
                     document.getElementById('status').textContent = '🟢 Kode siap!';
                     document.getElementById('status').className = 'status online';
+                    try { navigator.clipboard.writeText(data.code); } catch(e) {}
+                } else if (data.success && data.qr) {
+                    result.innerHTML = `
+                        <div style="font-size:44px;">📱</div>
+                        <div class="qr-container">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.qr)}" alt="QR Code" />
+                        </div>
+                        <div style="color:#666;font-size:13px;">Scan QR di WhatsApp</div>
+                    `;
+                    document.getElementById('status').textContent = '📱 Scan QR Code!';
+                    document.getElementById('status').className = 'status online';
+                } else if (data.success && data.message) {
+                    result.innerHTML = `<div style="font-size:44px;">✅</div><div style="font-weight:bold;">${data.message}</div>`;
                 } else {
-                    result.innerHTML = '<div style="color:#dc3545;">❌ ' + (data.error || 'Gagal!') + '</div>';
+                    result.innerHTML = `<div style="font-size:44px;">❌</div><div style="color:#dc3545;">${data.error || 'Gagal!'}</div>`;
                 }
             } catch (e) {
-                result.innerHTML = '<div style="color:#dc3545;">❌ Error: ' + e.message + '</div>';
+                result.innerHTML = `<div style="font-size:44px;">❌</div><div style="color:#dc3545;">${e.message}</div>`;
             }
 
             isPairing = false;
