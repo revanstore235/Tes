@@ -3,13 +3,27 @@ const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBailey
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
 const { setting } = require('./setting.js');
-const { ping, info, menu, stalk, hidetag, kick, add, setdesc, setname, leave, owner } = require('./main.js');
+const {
+    ping,
+    info,
+    menu,
+    stalk,
+    stalkepep,
+    logomaker,
+    hidetag,
+    kick,
+    add,
+    setdesc,
+    setname,
+    leave,
+    owner
+} = require('./main.js');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const PORT = 0; // <--- RANDOM!
+const PORT = 0;
 
 let sock = null;
 let createState = null;
@@ -147,6 +161,16 @@ async function startBot() {
                         await stalk(sock, msg, args);
                         break;
 
+                    case 'stalkepep':
+                    case 'epep':
+                    case 'ff':
+                        await stalkepep(sock, msg, args);
+                        break;
+
+                    case 'logo':
+                        await logomaker(sock, msg, args);
+                        break;
+
                     case 'hidetag':
                     case 'ht':
                     case 'tagall':
@@ -280,7 +304,7 @@ app.get('/api/status', (req, res) => {
     const botId = sock?.authState?.creds?.me?.id || null;
 
     res.json({
-        status: sock ? 'connected' : 'disconnected',
+        status: sock?.user ? 'connected' : 'disconnected',
         botNumber: botId
     });
 });
