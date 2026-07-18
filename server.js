@@ -2,13 +2,14 @@ const express = require('express');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
+const { setting } = require('./setting.js');
+const { ping, info, menu, stalk, hidetag, kick, add, setdesc, setname, leave, owner } = require('./main.js');
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const OWNER_NUMBER = '6281284406156';
-
+const PORT = process.env.PORT || 3000;
 let sock = null;
 
 app.post('/api/pair', async (req, res) => {
@@ -31,41 +32,22 @@ app.post('/api/pair', async (req, res) => {
 
         console.log('📦 Baileys v' + version.join('.'));
 
-        // ============================================================
-        // KONFIGURASI PAIRING CODE - HAPUS mobile: true!
-        // ============================================================
         sock = makeWASocket({
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            patchMessageBeforeSending: (msg) => msg,
-            getMessage: async (key) => null,
-            generateHighQualityLinkPreview: false
+            shouldSyncHistoryMessage: () => false
         });
 
         sock.ev.on('creds.update', saveCreds);
+        await new Promise(r => setTimeout(r, 3000));
 
-        // ===== TUNGGU SAMPAI SOCKET SIAP =====
-        await new Promise(r => setTimeout(r, 5000));
-
-        // ===== CEK APAKAH UDAH TERDAFTAR =====
-        if (sock.authState.creds.registered) {
-            console.log('✅ Bot sudah terdaftar!');
-            return res.json({
-                success: true,
-                message: 'Bot sudah terhubung!',
-                botNumber: sock.authState.creds.me?.id || 'Unknown'
-            });
-        }
-
-        // ===== REQUEST PAIRING CODE =====
         const code = await sock.requestPairingCode(clean);
         console.log('✅ PAIRING CODE:', code);
 
@@ -121,16 +103,13 @@ async function startBot() {
             version,
             auth: state,
             printQRInTerminal: false,
-            browser: ['WhatsApp Bot', 'Chrome', '120.0.0.0'],
+            browser: ['Baileys', 'Chrome', '120.0.0.0'],
             connectTimeoutMs: 60000,
             keepAliveIntervalMs: 10000,
             defaultQueryTimeoutMs: 60000,
             markOnlineOnConnect: true,
             syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false,
-            patchMessageBeforeSending: (msg) => msg,
-            getMessage: async (key) => null,
-            generateHighQualityLinkPreview: false
+            shouldSyncHistoryMessage: () => false
         });
 
         sock.ev.on('creds.update', saveCreds);
@@ -160,123 +139,63 @@ async function startBot() {
                 let text = '';
                 if (msg.message.conversation) text = msg.message.conversation;
                 else if (msg.message.extendedTextMessage) text = msg.message.extendedTextMessage.text || '';
+                else if (msg.message.imageMessage) text = msg.message.imageMessage.caption || '';
+                else if (msg.message.videoMessage) text = msg.message.videoMessage.caption || '';
 
-                if (!text.startsWith('!')) return;
+                if (!text.startsWith(setting.prefix)) return;
 
-                const args = text.slice(1).trim().split(/ +/);
+                const args = text.slice(setting.prefix.length).trim().split(/ +/);
                 const command = args.shift()?.toLowerCase();
                 if (!command) return;
 
-                const chatId = msg.key.remoteJid;
-                const isGroup = chatId.endsWith('@g.us');
+                const sender = msg.key.participant || msg.key.remoteJid;
+                console.log(`📨 [${command}] dari ${sender.split('@')[0]}`);
 
-                if (command === 'ping') {
-                    await sock.sendMessage(chatId, { text: '🏓 Pong!' });
-                } else if (command === 'info') {
-                    await sock.sendMessage(chatId, {
-                        text: '🤖 *Bot WhatsApp Pro*\n📱 ' + (sock.authState.creds.me?.id || 'Unknown') + '\n👨‍💻 Owner: ' + OWNER_NUMBER
-                    });
-                } else if (command === 'menu') {
-                    await sock.sendMessage(chatId, {
-                        text: '📋 *MENU BOT*\n\n!ping - Test\n!info - Info\n!menu - Menu\n!hidetag - Tag semua (grup)\n!kick @user - Kick (grup)\n!add @user - Add (grup)\n!setdesc - Ganti deskripsi\n!setname - Ganti nama grup\n!leave - Keluar grup'
-                    });
-                } else if (command === 'hidetag' || command === 'tagall') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    const metadata = await sock.groupMetadata(chatId);
-                    const botId = sock.authState.creds.me?.id || '';
-                    const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
-                    if (!isBotAdmin) {
-                        await sock.sendMessage(chatId, { text: '❌ Bot harus ADMIN!' });
-                        return;
-                    }
-                    const mentions = metadata.participants.map(p => p.id);
-                    await sock.sendMessage(chatId, { text: args.join(' ') || '👥 HIDETAG!', mentions });
-                } else if (command === 'kick') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
-                    }
-                    const ctx = msg.message?.extendedTextMessage?.contextInfo;
-                    const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) {
-                        await sock.sendMessage(chatId, { text: '❌ Tag user!' });
-                        return;
-                    }
-                    await sock.groupParticipantsUpdate(chatId, [target], 'remove');
-                    await sock.sendMessage(chatId, { text: '👢 @' + target.split('@')[0] + ' di-kick!', mentions: [target] });
-                } else if (command === 'add') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
-                    }
-                    const ctx = msg.message?.extendedTextMessage?.contextInfo;
-                    const target = ctx?.mentionedJid?.[0] || ctx?.participant;
-                    if (!target) {
-                        await sock.sendMessage(chatId, { text: '❌ Tag user!' });
-                        return;
-                    }
-                    await sock.groupParticipantsUpdate(chatId, [target], 'add');
-                    await sock.sendMessage(chatId, { text: '✅ @' + target.split('@')[0] + ' di-add!', mentions: [target] });
-                } else if (command === 'setdesc') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
-                    }
-                    const newDesc = args.join(' ');
-                    if (!newDesc) {
-                        await sock.sendMessage(chatId, { text: '❌ Masukkan deskripsi!' });
-                        return;
-                    }
-                    await sock.groupUpdateDescription(chatId, newDesc);
-                    await sock.sendMessage(chatId, { text: '✅ Deskripsi diubah!\n' + newDesc });
-                } else if (command === 'setname') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    const metadata = await sock.groupMetadata(chatId);
-                    if (!metadata.participants.find(p => p.id === msg.key.participant)?.admin) {
-                        await sock.sendMessage(chatId, { text: '❌ Harus ADMIN!' });
-                        return;
-                    }
-                    const newName = args.join(' ');
-                    if (!newName) {
-                        await sock.sendMessage(chatId, { text: '❌ Masukkan nama!' });
-                        return;
-                    }
-                    await sock.groupUpdateSubject(chatId, newName);
-                    await sock.sendMessage(chatId, { text: '✅ Nama grup diubah!\n' + newName });
-                } else if (command === 'leave') {
-                    if (!isGroup) {
-                        await sock.sendMessage(chatId, { text: '❌ Hanya di GRUP!' });
-                        return;
-                    }
-                    await sock.sendMessage(chatId, { text: '👋 Bye!' });
-                    await sock.groupLeave(chatId);
-                } else {
-                    await sock.sendMessage(chatId, { text: '❌ Command *' + command + '* tidak dikenal!\nKetik *!menu*' });
+                switch (command) {
+                    case 'ping':
+                        await ping(sock, msg);
+                        break;
+                    case 'info':
+                    case 'dev':
+                        await info(sock, msg);
+                        break;
+                    case 'menu':
+                        await menu(sock, msg);
+                        break;
+                    case 'stalk':
+                        await stalk(sock, msg, args);
+                        break;
+                    case 'hidetag':
+                    case 'ht':
+                    case 'tagall':
+                        await hidetag(sock, msg, args);
+                        break;
+                    case 'kick':
+                        await kick(sock, msg, args);
+                        break;
+                    case 'add':
+                        await add(sock, msg, args);
+                        break;
+                    case 'setdesc':
+                        await setdesc(sock, msg, args);
+                        break;
+                    case 'setname':
+                        await setname(sock, msg, args);
+                        break;
+                    case 'leave':
+                        await leave(sock, msg);
+                        break;
+                    case 'owner':
+                        await owner(sock, msg);
+                        break;
+                    default:
+                        await sock.sendMessage(msg.key.remoteJid, {
+                            text: `❌ Command *${command}* tidak dikenal!\nKetik *${setting.prefix}menu* untuk daftar command.`
+                        });
+                        break;
                 }
-
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                console.error('❌ Error processing message:', error.message);
             }
         });
 
@@ -286,22 +205,8 @@ async function startBot() {
     }
 }
 
-// ==========================================
-// PAKAI PORT DARI RAILWAY, BUKAN RANDOM!
-// ==========================================
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, '0.0.0.0', () => {
+app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
     console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
     startBot();
-});
-
-// ===== KALO PORT KEPAKE, GANTI OTOMATIS =====
-server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-        console.log('⚠️ Port', PORT, 'sibuk, coba port lain...');
-        const newServer = app.listen(0, '0.0.0.0', () => {
-            console.log('🌐 Server running on port', newServer.address().port);
-        });
-    }
 });
