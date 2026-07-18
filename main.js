@@ -3,6 +3,22 @@ const axios = require('axios');
 
 const cooldowns = new Map();
 
+function normalizeJid(jid = '') {
+    return jid.split(':')[0] + '@s.whatsapp.net';
+}
+
+function getParticipant(metadata, jid) {
+    const id = normalizeJid(jid);
+    return metadata.participants.find(p => normalizeJid(p.id) === id);
+}
+
+function botIsAdmin(sock, metadata) {
+    const botId = normalizeJid(sock.authState.creds.me?.id || '');
+    return metadata.participants.some(
+        p => normalizeJid(p.id) === botId && (p.admin === 'admin' || p.admin === 'superadmin')
+    );
+}
+
 function isCooldown(userId, command) {
     const key = `${userId}-${command}`;
     const now = Date.now();
@@ -22,13 +38,10 @@ function formatUptime(seconds) {
     const parts = [];
     if (h > 0) parts.push(`${h}j`);
     if (m > 0) parts.push(`${m}m`);
-    parts.push(`${s}d`);
+    if (s > 0 || parts.length === 0) parts.push(`${s}s`);
     return parts.join(' ');
 }
 
-// ==========================================
-// 1. PING
-// ==========================================
 async function ping(sock, msg) {
     try {
         const start = Date.now();
@@ -40,9 +53,6 @@ async function ping(sock, msg) {
     }
 }
 
-// ==========================================
-// 2. INFO
-// ==========================================
 async function info(sock, msg) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -69,6 +79,8 @@ async function info(sock, msg) {
             `${setting.prefix}info - Info bot\n` +
             `${setting.prefix}menu - Menu\n` +
             `${setting.prefix}stalk [username] - Stalk Roblox\n` +
+            `${setting.prefix}stalkepep [uid] - Stalk Epep\n` +
+            `${setting.prefix}logo [teks] - Buat logo\n` +
             `${setting.prefix}hidetag - Mention semua (grup)\n` +
             `${setting.prefix}kick @user - Kick (grup)\n` +
             `${setting.prefix}add @user - Add (grup)\n` +
@@ -84,9 +96,6 @@ async function info(sock, msg) {
     }
 }
 
-// ==========================================
-// 3. MENU
-// ==========================================
 async function menu(sock, msg) {
     try {
         const chatId = msg.key.remoteJid;
@@ -95,7 +104,9 @@ async function menu(sock, msg) {
             `${setting.prefix}ping - Test koneksi\n` +
             `${setting.prefix}info - Info bot\n` +
             `${setting.prefix}menu - Menu ini\n` +
-            `${setting.prefix}stalk [username] - Stalk Roblox\n\n` +
+            `${setting.prefix}stalk [username] - Stalk Roblox\n` +
+            `${setting.prefix}stalkepep [uid] - Stalk Epep\n` +
+            `${setting.prefix}logo [teks] - Buat logo\n\n` +
             `🔸 *Command Grup (Admin):*\n` +
             `${setting.prefix}hidetag - Mention semua member\n` +
             `${setting.prefix}kick @user - Kick member\n` +
@@ -110,9 +121,6 @@ async function menu(sock, msg) {
     }
 }
 
-// ==========================================
-// 4. STALK ROBLOX
-// ==========================================
 async function stalk(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -134,7 +142,7 @@ async function stalk(sock, msg, args) {
             const response = await axios.get(`https://api.ikyyxd.my.id/stalk/roblox?username=${encodeURIComponent(username)}`);
             const data = response.data;
 
-            if (data.status === 200 && data.result) {
+            if (data.status === 200 && data.result && data.result.username) {
                 const user = data.result;
                 const text = `🎮 *STALK ROBLOX*\n\n` +
                     `👤 *Username:* ${user.username || 'Tidak diketahui'}\n` +
@@ -150,12 +158,12 @@ async function stalk(sock, msg, args) {
                 await sock.sendMessage(chatId, { text });
                 console.log(`✅ Stalk ${username} berhasil`);
             } else {
-                await sock.sendMessage(chatId, { text: `❌ Gagal menemukan data untuk username *${username}*` });
+                await sock.sendMessage(chatId, { text: `❌ Tidak ditemukan akun Roblox *${username}*` });
             }
         } catch (apiError) {
             console.error('API Error:', apiError.message);
             await sock.sendMessage(chatId, { 
-                text: `❌ Gagal mengambil data Roblox untuk *${username}*\nCoba lagi nanti atau periksa username.` 
+                text: `❌ Gagal mengambil data Roblox untuk *${username}*\nCoba lagi nanti.` 
             });
         }
     } catch (error) {
@@ -164,9 +172,95 @@ async function stalk(sock, msg, args) {
     }
 }
 
-// ==========================================
-// 5. HIDETAG / TAGALL
-// ==========================================
+async function stalkepep(sock, msg, args) {
+    try {
+        const sender = msg.key.participant || msg.key.remoteJid;
+        const chatId = msg.key.remoteJid;
+        
+        const cd = isCooldown(sender, 'stalkepep');
+        if (cd) {
+            return sock.sendMessage(chatId, { text: setting.messages.cooldown(cd) }, { quoted: msg });
+        }
+        
+        const uid = args.join(' ');
+        if (!uid) {
+            return sock.sendMessage(chatId, { text: '❌ Masukkan UID Epep!\nCara: !stalkepep [uid]' }, { quoted: msg });
+        }
+
+        await sock.sendMessage(chatId, { text: `⏳ Sedang mencari data UID ${uid}...` });
+
+        try {
+            const response = await axios.get(`https://api.ikyyxd.my.id/stalk/epepid?uid=${encodeURIComponent(uid)}`);
+            const data = response.data;
+
+            if (data.status === 200 && data.result) {
+                const user = data.result;
+                const text = `🎮 *STALK EPEP*\n\n` +
+                    `👤 *Username:* ${user.username || 'Tidak diketahui'}\n` +
+                    `🆔 *UID:* ${user.uid || 'Tidak diketahui'}\n` +
+                    `📊 *Level:* ${user.level || '0'}\n` +
+                    `💎 *Diamond:* ${user.diamond || '0'}\n` +
+                    `💰 *Gold:* ${user.gold || '0'}\n` +
+                    `🏆 *Prestige:* ${user.prestige || '0'}`;
+                
+                await sock.sendMessage(chatId, { text });
+                console.log(`✅ Stalk Epep ${uid} berhasil`);
+            } else {
+                await sock.sendMessage(chatId, { text: `❌ Tidak ditemukan akun Epep dengan UID *${uid}*` });
+            }
+        } catch (apiError) {
+            console.error('API Error:', apiError.message);
+            await sock.sendMessage(chatId, { 
+                text: `❌ Gagal mengambil data Epep untuk UID *${uid}*\nCoba lagi nanti.` 
+            });
+        }
+    } catch (error) {
+        console.error('❌ Error stalkepep:', error.message);
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ Terjadi error saat men-stalk.' });
+    }
+}
+
+async function logomaker(sock, msg, args) {
+    try {
+        const sender = msg.key.participant || msg.key.remoteJid;
+        const chatId = msg.key.remoteJid;
+        
+        const cd = isCooldown(sender, 'logo');
+        if (cd) {
+            return sock.sendMessage(chatId, { text: setting.messages.cooldown(cd) }, { quoted: msg });
+        }
+        
+        const text = args.join(' ');
+        if (!text) {
+            return sock.sendMessage(chatId, { text: '❌ Masukkan teks untuk logo!\nCara: !logo [teks]' }, { quoted: msg });
+        }
+
+        await sock.sendMessage(chatId, { text: `⏳ Sedang membuat logo untuk "${text}"...` });
+
+        try {
+            const response = await axios.get(`https://api.ikyyxd.my.id/image/logo?text=${encodeURIComponent(text)}`, {
+                responseType: 'arraybuffer'
+            });
+            
+            const buffer = Buffer.from(response.data);
+            
+            await sock.sendMessage(chatId, {
+                image: buffer,
+                caption: `✅ *LOGO BERHASIL DIBUAT!*\n\n📝 Teks: ${text}\n📱 ${setting.botName}`
+            });
+            console.log(`✅ Logo ${text} berhasil dibuat`);
+        } catch (apiError) {
+            console.error('API Error:', apiError.message);
+            await sock.sendMessage(chatId, { 
+                text: `❌ Gagal membuat logo untuk *${text}*\nCoba lagi nanti.` 
+            });
+        }
+    } catch (error) {
+        console.error('❌ Error logo:', error.message);
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ Terjadi error saat membuat logo.' });
+    }
+}
+
 async function hidetag(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -182,10 +276,8 @@ async function hidetag(sock, msg, args) {
         }
         
         const metadata = await sock.groupMetadata(groupId);
-        const botId = sock.authState.creds.me?.id || '';
-        const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
         
-        if (!isBotAdmin) {
+        if (!botIsAdmin(sock, metadata)) {
             return sock.sendMessage(groupId, { text: setting.messages.botNotAdmin }, { quoted: msg });
         }
         
@@ -196,12 +288,10 @@ async function hidetag(sock, msg, args) {
         console.log(`✅ Hidetag di grup ${metadata.subject}`);
     } catch (error) {
         console.error('❌ Error hidetag:', error.message);
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ Gagal hidetag: ' + error.message });
     }
 }
 
-// ==========================================
-// 6. KICK
-// ==========================================
 async function kick(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -212,16 +302,13 @@ async function kick(sock, msg, args) {
         }
         
         const metadata = await sock.groupMetadata(groupId);
-        const senderInfo = metadata.participants.find(p => p.id === sender);
+        const senderInfo = getParticipant(metadata, sender);
         
         if (!senderInfo?.admin) {
             return sock.sendMessage(groupId, { text: setting.messages.adminOnly }, { quoted: msg });
         }
         
-        const botId = sock.authState.creds.me?.id || '';
-        const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
-        
-        if (!isBotAdmin) {
+        if (!botIsAdmin(sock, metadata)) {
             return sock.sendMessage(groupId, { text: setting.messages.botNotAdmin }, { quoted: msg });
         }
         
@@ -260,12 +347,10 @@ async function kick(sock, msg, args) {
         console.log(`✅ Kick @${target.split('@')[0]} dari ${metadata.subject}`);
     } catch (error) {
         console.error('❌ Error kick:', error.message);
+        await sock.sendMessage(msg.key.remoteJid, { text: '❌ Gagal kick: ' + error.message });
     }
 }
 
-// ==========================================
-// 7. ADD
-// ==========================================
 async function add(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -276,16 +361,13 @@ async function add(sock, msg, args) {
         }
         
         const metadata = await sock.groupMetadata(groupId);
-        const senderInfo = metadata.participants.find(p => p.id === sender);
+        const senderInfo = getParticipant(metadata, sender);
         
         if (!senderInfo?.admin) {
             return sock.sendMessage(groupId, { text: setting.messages.adminOnly }, { quoted: msg });
         }
         
-        const botId = sock.authState.creds.me?.id || '';
-        const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
-        
-        if (!isBotAdmin) {
+        if (!botIsAdmin(sock, metadata)) {
             return sock.sendMessage(groupId, { text: setting.messages.botNotAdmin }, { quoted: msg });
         }
         
@@ -314,9 +396,6 @@ async function add(sock, msg, args) {
     }
 }
 
-// ==========================================
-// 8. SETDESC
-// ==========================================
 async function setdesc(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -327,16 +406,13 @@ async function setdesc(sock, msg, args) {
         }
         
         const metadata = await sock.groupMetadata(groupId);
-        const senderInfo = metadata.participants.find(p => p.id === sender);
+        const senderInfo = getParticipant(metadata, sender);
         
         if (!senderInfo?.admin) {
             return sock.sendMessage(groupId, { text: setting.messages.adminOnly }, { quoted: msg });
         }
         
-        const botId = sock.authState.creds.me?.id || '';
-        const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
-        
-        if (!isBotAdmin) {
+        if (!botIsAdmin(sock, metadata)) {
             return sock.sendMessage(groupId, { text: setting.messages.botNotAdmin }, { quoted: msg });
         }
         
@@ -355,9 +431,6 @@ async function setdesc(sock, msg, args) {
     }
 }
 
-// ==========================================
-// 9. SETNAME
-// ==========================================
 async function setname(sock, msg, args) {
     try {
         const sender = msg.key.participant || msg.key.remoteJid;
@@ -368,16 +441,13 @@ async function setname(sock, msg, args) {
         }
         
         const metadata = await sock.groupMetadata(groupId);
-        const senderInfo = metadata.participants.find(p => p.id === sender);
+        const senderInfo = getParticipant(metadata, sender);
         
         if (!senderInfo?.admin) {
             return sock.sendMessage(groupId, { text: setting.messages.adminOnly }, { quoted: msg });
         }
         
-        const botId = sock.authState.creds.me?.id || '';
-        const isBotAdmin = metadata.participants.find(p => p.id === botId)?.admin;
-        
-        if (!isBotAdmin) {
+        if (!botIsAdmin(sock, metadata)) {
             return sock.sendMessage(groupId, { text: setting.messages.botNotAdmin }, { quoted: msg });
         }
         
@@ -396,9 +466,6 @@ async function setname(sock, msg, args) {
     }
 }
 
-// ==========================================
-// 10. LEAVE
-// ==========================================
 async function leave(sock, msg) {
     try {
         const groupId = msg.key.remoteJid;
@@ -415,9 +482,6 @@ async function leave(sock, msg) {
     }
 }
 
-// ==========================================
-// 11. OWNER
-// ==========================================
 async function owner(sock, msg) {
     try {
         const chatId = msg.key.remoteJid;
@@ -434,6 +498,8 @@ module.exports = {
     info,
     menu,
     stalk,
+    stalkepep,
+    logomaker,
     hidetag,
     kick,
     add,
