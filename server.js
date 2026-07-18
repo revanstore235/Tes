@@ -165,7 +165,10 @@ app.post('/api/pair', async (req, res) => {
         }
 
         const clean = phone.replace(/\D/g, '');
-        console.log('📱 Pairing request for:', clean);
+        // Ensure phone is in full JID format for pairing (e.g. 628123...@s.whatsapp.net)
+        const jid = clean.includes('@') ? clean : `${clean}@s.whatsapp.net`;
+
+        console.log('📱 Pairing request for:', jid);
 
         // Ensure bot/socket exists
         if (!sock) {
@@ -179,11 +182,41 @@ app.post('/api/pair', async (req, res) => {
         }
 
         // Show connection updates in logs for debugging
-        console.log('Requesting pairing code...');
-        const code = await sock.requestPairingCode(clean);
-        console.log('✅ PAIRING CODE:', code);
+        console.log('Requesting pairing code for JID:', jid);
 
-        return res.json({ success: true, code });
+        // Some Baileys versions expect a JID, others expect a phone number. Try both forms if needed.
+        let resp;
+        try {
+            resp = await sock.requestPairingCode(jid);
+        } catch (e1) {
+            console.warn('requestPairingCode with JID failed, trying raw number:', e1?.message);
+            try {
+                resp = await sock.requestPairingCode(clean);
+            } catch (e2) {
+                console.error('Both requestPairingCode attempts failed:', e1, e2);
+                throw e2 || e1;
+            }
+        }
+
+        console.log('PAIRING RESPONSE =>', resp);
+
+        // resp may be a string code, or an object { code } or { qr } depending on Baileys version
+        if (!resp) {
+            return res.status(500).json({ success: false, error: 'Tidak ada response dari requestPairingCode' });
+        }
+
+        if (typeof resp === 'string') {
+            return res.json({ success: true, code: resp });
+        }
+        if (resp.code) {
+            return res.json({ success: true, code: resp.code });
+        }
+        if (resp.qr) {
+            return res.json({ success: true, qr: resp.qr });
+        }
+
+        // return entire object as fallback
+        return res.json({ success: true, data: resp });
     } catch (error) {
         console.error('❌ Error in /api/pair:', error);
         return res.status(500).json({ success: false, error: String(error) });
