@@ -9,7 +9,10 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const PORT = process.env.PORT || 3000;
+// Always use a random free port (0) so we don't collide with fixed ports like 8080
+const DESIRED_PORT = 0;
+const HOST = '0.0.0.0';
+
 let sock = null;
 let createState = null; // { state, saveCreds }
 let creatingSocket = false;
@@ -44,7 +47,15 @@ async function startBot() {
             shouldSyncHistoryMessage: () => false
         });
 
-        saveCreds && sock.ev.on('creds.update', saveCreds);
+        if (saveCreds) {
+            sock.ev.on('creds.update', async () => {
+                try {
+                    await saveCreds();
+                } catch (e) {
+                    console.error('❌ saveCreds error:', e);
+                }
+            });
+        }
 
         sock.ev.on('connection.update', async (update) => {
             console.log('connection.update =>', update);
@@ -87,7 +98,6 @@ async function startBot() {
                 if (!command) return;
 
                 const chatId = msg.key.remoteJid;
-                const isGroup = chatId.endsWith('@g.us');
 
                 console.log(`📨 [${command}]`);
 
@@ -145,34 +155,6 @@ async function startBot() {
     } finally {
         creatingSocket = false;
     }
-}
-
-function waitForSocketReady(timeout = 5000) {
-    return new Promise((resolve) => {
-        if (!sock) return resolve(false);
-        // If already open
-        // We can't directly inspect connection state easily, so rely on first connection.update = open
-        let resolved = false;
-        const timer = setTimeout(() => {
-            if (!resolved) {
-                resolved = true;
-                resolve(true); // still attempt
-            }
-        }, timeout);
-
-        const handler = (update) => {
-            if (update.connection === 'open') {
-                if (!resolved) {
-                    resolved = true;
-                    clearTimeout(timer);
-                    resolve(true);
-                }
-            }
-        };
-        sock.ev.on('connection.update', handler);
-
-        // also resolve immediately if nothing else happens after timeout
-    });
 }
 
 app.post('/api/pair', async (req, res) => {
@@ -234,10 +216,16 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
+// Always bind to a random free port to avoid collisions (e.g. 8080 already in use)
+const server = app.listen(DESIRED_PORT, HOST, () => {
+    const actualPort = server.address().port;
+    console.log(`🌐 Server running on port ${actualPort}`);
     console.log('🔗 https://' + (process.env.RAILWAY_STATIC_URL || 'railway.app'));
-    // Do not startBot automatically if you prefer to pair manually via /api/pair.
-    // If you want the bot to attempt to auto-start and reuse existing session, uncomment next line:
+    // Start bot after server is listening
     startBot();
+});
+
+server.on('error', (err) => {
+    console.error('❌ Server error during listen:', err);
+    process.exit(1);
 });
