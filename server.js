@@ -11,92 +11,24 @@ app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 let sock = null;
+let createState = null; // { state, saveCreds }
+let creatingSocket = false;
 
-app.post('/api/pair', async (req, res) => {
-    try {
-        const { phone } = req.body;
-        if (!phone) {
-            return res.status(400).json({ success: false, error: 'Nomor HP wajib diisi!' });
-        }
-
-        const clean = phone.replace(/\D/g, '');
-        console.log('📱 Pairing:', clean);
-
-        if (fs.existsSync('./session')) {
-            fs.rmSync('./session', { recursive: true, force: true });
-        }
-        fs.mkdirSync('./session');
-
-        const { state, saveCreds } = await useMultiFileAuthState('./session');
-        const { version } = await fetchLatestBaileysVersion();
-
-        console.log('📦 Baileys v' + version.join('.'));
-
-        sock = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: false,
-            browser: ['Baileys', 'Chrome', '120.0.0.0'],
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            defaultQueryTimeoutMs: 60000,
-            markOnlineOnConnect: true,
-            syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
-        });
-
-        sock.ev.on('creds.update', saveCreds);
-        await new Promise(r => setTimeout(r, 3000));
-
-        const code = await sock.requestPairingCode(clean);
-        console.log('✅ PAIRING CODE:', code);
-
-        return res.json({
-            success: true,
-            code: code
-        });
-
-    } catch (error) {
-        console.error('❌ Error:', error.message);
-        return res.status(500).json({
-            success: false,
-            error: error.message
-        });
+async function ensureSessionDir() {
+    if (!fs.existsSync('./session')) {
+        fs.mkdirSync('./session', { recursive: true });
     }
-});
-
-app.get('/api/status', (req, res) => {
-    const botId = sock?.authState?.creds?.me?.id || null;
-    res.json({
-        status: sock ? 'connected' : 'disconnected',
-        botNumber: botId
-    });
-});
-
-app.post('/api/reset', async (req, res) => {
-    try {
-        if (sock) {
-            await sock.end();
-            sock = null;
-        }
-        if (fs.existsSync('./session')) {
-            fs.rmSync('./session', { recursive: true, force: true });
-        }
-        setTimeout(startBot, 3000);
-        res.json({ success: true, message: 'Bot direset!' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+}
 
 async function startBot() {
-    try {
-        if (fs.existsSync('./session')) {
-            fs.rmSync('./session', { recursive: true, force: true });
-        }
-        fs.mkdirSync('./session');
+    if (sock) return; // already running
+    if (creatingSocket) return;
+    creatingSocket = true;
 
+    try {
+        await ensureSessionDir();
         const { state, saveCreds } = await useMultiFileAuthState('./session');
+        createState = { state, saveCreds };
         const { version } = await fetchLatestBaileysVersion();
 
         sock = makeWASocket({
@@ -112,22 +44,30 @@ async function startBot() {
             shouldSyncHistoryMessage: () => false
         });
 
-        sock.ev.on('creds.update', saveCreds);
+        saveCreds && sock.ev.on('creds.update', saveCreds);
 
         sock.ev.on('connection.update', async (update) => {
+            console.log('connection.update =>', update);
             const { connection, lastDisconnect } = update;
             if (connection === 'open') {
                 console.log('✅ BOT CONNECTED!');
-                console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
+                console.log('📱 Nomor:', sock?.authState?.creds?.me?.id || 'Unknown');
             }
             if (connection === 'close') {
                 const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                console.log('connection closed, statusCode=', statusCode);
                 if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
                     if (fs.existsSync('./session')) {
-                        fs.rmSync('./session', { recursive: true, force: true });
+                        try { fs.rmSync('./session', { recursive: true, force: true }); } catch (e) { console.error(e); }
                     }
+                    sock = null;
+                    createState = null;
                 }
-                setTimeout(startBot, 5000);
+                // try reconnect
+                setTimeout(() => {
+                    sock = null;
+                    startBot();
+                }, 5000);
             }
         });
 
@@ -194,18 +134,110 @@ async function startBot() {
                         break;
                 }
             } catch (error) {
-                console.error('❌ Error:', error.message);
+                console.error('❌ Message handler error:', error);
             }
         });
 
     } catch (error) {
-        console.error('❌ Fatal error:', error.message);
-        setTimeout(startBot, 5000);
+        console.error('❌ Fatal error starting bot:', error);
+        // retry after delay
+        setTimeout(() => startBot(), 5000);
+    } finally {
+        creatingSocket = false;
     }
 }
 
+function waitForSocketReady(timeout = 5000) {
+    return new Promise((resolve) => {
+        if (!sock) return resolve(false);
+        // If already open
+        // We can't directly inspect connection state easily, so rely on first connection.update = open
+        let resolved = false;
+        const timer = setTimeout(() => {
+            if (!resolved) {
+                resolved = true;
+                resolve(true); // still attempt
+            }
+        }, timeout);
+
+        const handler = (update) => {
+            if (update.connection === 'open') {
+                if (!resolved) {
+                    resolved = true;
+                    clearTimeout(timer);
+                    resolve(true);
+                }
+            }
+        };
+        sock.ev.on('connection.update', handler);
+
+        // also resolve immediately if nothing else happens after timeout
+    });
+}
+
+app.post('/api/pair', async (req, res) => {
+    try {
+        const { phone } = req.body;
+        if (!phone) {
+            return res.status(400).json({ success: false, error: 'Nomor HP wajib diisi!' });
+        }
+
+        const clean = phone.replace(/\D/g, '');
+        console.log('📱 Pairing request for:', clean);
+
+        // Ensure bot/socket exists
+        if (!sock) {
+            await startBot();
+            // wait a short while for socket to initialize
+            await new Promise(r => setTimeout(r, 1500));
+        }
+
+        if (!sock) {
+            return res.status(500).json({ success: false, error: 'Gagal membuat koneksi ke WhatsApp. Coba lagi.' });
+        }
+
+        // Show connection updates in logs for debugging
+        console.log('Requesting pairing code...');
+        const code = await sock.requestPairingCode(clean);
+        console.log('✅ PAIRING CODE:', code);
+
+        return res.json({ success: true, code });
+    } catch (error) {
+        console.error('❌ Error in /api/pair:', error);
+        return res.status(500).json({ success: false, error: String(error) });
+    }
+});
+
+app.get('/api/status', (req, res) => {
+    const botId = sock?.authState?.creds?.me?.id || null;
+    res.json({
+        status: sock ? 'connected' : 'disconnected',
+        botNumber: botId
+    });
+});
+
+app.post('/api/reset', async (req, res) => {
+    try {
+        if (sock) {
+            try { await sock.end(); } catch (e) { console.error(e); }
+            sock = null;
+            createState = null;
+        }
+        if (fs.existsSync('./session')) {
+            fs.rmSync('./session', { recursive: true, force: true });
+        }
+        setTimeout(startBot, 3000);
+        res.json({ success: true, message: 'Bot direset!' });
+    } catch (error) {
+        console.error('❌ Error in /api/reset:', error);
+        res.status(500).json({ success: false, error: String(error) });
+    }
+});
+
 app.listen(PORT, '0.0.0.0', () => {
     console.log('🌐 Server running on port', PORT);
-    console.log('🔗 https://' + process.env.RAILWAY_STATIC_URL || 'railway.app');
+    console.log('🔗 https://' + (process.env.RAILWAY_STATIC_URL || 'railway.app'));
+    // Do not startBot automatically if you prefer to pair manually via /api/pair.
+    // If you want the bot to attempt to auto-start and reuse existing session, uncomment next line:
     startBot();
 });
