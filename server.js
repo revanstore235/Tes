@@ -1,7 +1,4 @@
-from pathlib import Path
-import zipfile
 
-code = r'''const express = require('express');
 const { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const fs = require('fs');
