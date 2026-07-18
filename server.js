@@ -14,6 +14,27 @@ let sock = null;
 let qrCodeData = null;
 let pairingCodeData = null;
 
+// ============================================================
+// FUNGSI BUAT SOCKET (printQRInTerminal: false)
+// ============================================================
+function createSocket(auth, version, printQR = false) {
+    return makeWASocket({
+        version,
+        auth: auth,
+        printQRInTerminal: printQR, // <--- BISA TRUE/FALSE
+        browser: ['Baileys', 'Chrome', '120.0.0.0'],
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 10000,
+        defaultQueryTimeoutMs: 60000,
+        markOnlineOnConnect: true,
+        syncFullHistory: false,
+        shouldSyncHistoryMessage: () => false
+    });
+}
+
+// ============================================================
+// API PAIR
+// ============================================================
 app.post('/api/pair', async (req, res) => {
     try {
         const { phone, method } = req.body;
@@ -35,58 +56,13 @@ app.post('/api/pair', async (req, res) => {
 
         console.log('📦 Baileys v' + version.join('.'));
 
-        sock = makeWASocket({
-            version,
-            auth: state,
-            printQRInTerminal: false,
-            browser: ['Baileys', 'Chrome', '120.0.0.0'],
-            connectTimeoutMs: 60000,
-            keepAliveIntervalMs: 10000,
-            defaultQueryTimeoutMs: 60000,
-            markOnlineOnConnect: true,
-            syncFullHistory: false,
-            shouldSyncHistoryMessage: () => false
-        });
-
-        sock.ev.on('creds.update', saveCreds);
-
-        let qrResolve = null;
-        let qrTimeout = null;
-
-        sock.ev.on('connection.update', async (update) => {
-            const { connection, lastDisconnect, qr } = update;
-
-            if (qr && method === 'qr') {
-                qrCodeData = qr;
-                console.log('\n📱 QR CODE GENERATED!');
-                QRCode.generate(qr, { small: true });
-                console.log('\n📱 Scan QR Code di terminal atau web!\n');
-                if (qrResolve) {
-                    qrResolve(qr);
-                    qrResolve = null;
-                }
-            }
-
-            if (connection === 'open') {
-                console.log('✅ BOT CONNECTED!');
-                console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
-                qrCodeData = null;
-                pairingCodeData = null;
-            }
-
-            if (connection === 'close') {
-                const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
-                console.log('❌ Disconnected:', statusCode);
-                if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
-                    if (fs.existsSync('./session')) {
-                        fs.rmSync('./session', { recursive: true, force: true });
-                    }
-                }
-                setTimeout(startBot, 5000);
-            }
-        });
-
+        // ============================================================
+        // 1. PAIRING CODE (GAK PAKE QR SAMA SEKALI)
+        // ============================================================
         if (method === 'pairing' || !method) {
+            sock = createSocket(state, version, false); // printQR: FALSE!
+            sock.ev.on('creds.update', saveCreds);
+
             try {
                 const code = await sock.requestPairingCode(clean);
                 pairingCodeData = code;
@@ -105,7 +81,49 @@ app.post('/api/pair', async (req, res) => {
             }
         }
 
+        // ============================================================
+        // 2. QR CODE (BARU DI SINI printQRInTerminal: TRUE!)
+        // ============================================================
         if (method === 'qr') {
+            sock = createSocket(state, version, true); // printQR: TRUE!
+            sock.ev.on('creds.update', saveCreds);
+
+            let qrResolve = null;
+            let qrTimeout = null;
+
+            sock.ev.on('connection.update', async (update) => {
+                const { connection, lastDisconnect, qr } = update;
+
+                if (qr) {
+                    qrCodeData = qr;
+                    console.log('\n📱 QR CODE GENERATED!');
+                    QRCode.generate(qr, { small: true });
+                    console.log('\n📱 Scan QR Code di terminal atau web!\n');
+                    if (qrResolve) {
+                        qrResolve(qr);
+                        qrResolve = null;
+                    }
+                }
+
+                if (connection === 'open') {
+                    console.log('✅ BOT CONNECTED!');
+                    console.log('📱 Nomor:', sock.authState.creds.me?.id || 'Unknown');
+                    qrCodeData = null;
+                    pairingCodeData = null;
+                }
+
+                if (connection === 'close') {
+                    const statusCode = new Boom(lastDisconnect?.error)?.output?.statusCode;
+                    console.log('❌ Disconnected:', statusCode);
+                    if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+                        if (fs.existsSync('./session')) {
+                            fs.rmSync('./session', { recursive: true, force: true });
+                        }
+                    }
+                    setTimeout(startBot, 5000);
+                }
+            });
+
             const qrPromise = new Promise((resolve) => {
                 qrResolve = resolve;
                 qrTimeout = setTimeout(() => {
@@ -175,6 +193,9 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
+// ============================================================
+// START BOT (printQRInTerminal: FALSE!)
+// ============================================================
 async function startBot() {
     try {
         if (fs.existsSync('./session')) {
@@ -185,6 +206,9 @@ async function startBot() {
         const { state, saveCreds } = await useMultiFileAuthState('./session');
         const { version } = await fetchLatestBaileysVersion();
 
+        // ============================================================
+        // GAK ADA QR DI SINI! printQRInTerminal: false
+        // ============================================================
         sock = makeWASocket({
             version,
             auth: state,
@@ -204,10 +228,10 @@ async function startBot() {
             const { connection, lastDisconnect, qr } = update;
 
             if (qr) {
+                // QR KELUAR, TAPI GAK DI PRINT DI TERMINAL KARENA printQRInTerminal: false
+                // CUMA DISIMPEN BUAT DI KIRIM KE WEB KALO DI REQUEST
                 qrCodeData = qr;
-                console.log('\n📱 QR CODE GENERATED!');
-                QRCode.generate(qr, { small: true });
-                console.log('\n📱 Scan QR Code di terminal atau web!\n');
+                console.log('📱 QR Code tersedia (cek web)');
             }
 
             if (connection === 'open') {
