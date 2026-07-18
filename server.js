@@ -9,7 +9,7 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const PORT = process.env.PORT || 0;
+const PORT = process.env.PORT || 3000;
 let sock = null;
 let createState = null; // { state, saveCreds }
 let creatingSocket = false;
