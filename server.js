@@ -88,9 +88,20 @@ async function startBot() {
             }
         });
 
-        sock.ev.on('messages.upsert', async ({ messages }) => {
+        sock.ev.on('messages.upsert', async ({ messages, type }) => {
             try {
-                const msg = messages[0];
+                if (type !== 'notify') return;
+
+                const msg = messages?.[0];
+
+                if (!msg) return;
+
+                if (
+                    msg.key?.remoteJid === 'status@broadcast' ||
+                    msg.key?.remoteJid === 'newsletter'
+                ) {
+                    return;
+                }
 
                 if (!msg.message || msg.key.fromMe) return;
 
@@ -101,6 +112,8 @@ async function startBot() {
                 } else if (msg.message.extendedTextMessage) {
                     text = msg.message.extendedTextMessage.text || '';
                 }
+
+                if (!text) return;
 
                 if (!text.startsWith(setting.prefix)) return;
 
@@ -168,10 +181,10 @@ async function startBot() {
                         await sock.sendMessage(chatId, {
                             text: `❌ Command *${command}* tidak dikenal!\nKetik *${setting.prefix}menu*`
                         });
-                        break;
                 }
             } catch (error) {
                 console.error('❌ Message handler error:', error);
+                console.error(error?.stack);
             }
         });
 
