@@ -233,8 +233,20 @@ app.post('/api/reset', async (req, res) => {
     }
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-    console.log('🌐 Server running on port', PORT);
-    console.log('🔗 https://' + (process.env.RAILWAY_STATIC_URL || 'railway.app'));
+const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(
+        '🌐 Server running on port',
+        server.address().port
+    );
+
+    console.log(
+        '🔗 https://' +
+        (process.env.RAILWAY_STATIC_URL || 'railway.app')
+    );
+
     startBot();
+});
+
+server.on('error', (err) => {
+    console.error('❌ Server error:', err);
 });
