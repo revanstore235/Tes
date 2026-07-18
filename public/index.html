@@ -3,235 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🤖 WhatsApp Bot</title>
+    <title>Pairing Code Only - WhatsApp Bot</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            min-height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 20px;
-        }
-        .card {
-            background: white;
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 450px;
-            width: 100%;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        }
-        h1 { text-align: center; color: #333; }
-        .sub { text-align: center; color: #888; margin-bottom: 25px; }
-        
-        .method-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-        }
-        .method-btn {
-            flex: 1;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            background: white;
-            font-size: 14px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.3s;
-        }
-        .method-btn.active {
-            border-color: #667eea;
-            background: #667eea;
-            color: white;
-        }
-        
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        .input-group input {
-            flex: 1;
-            padding: 14px;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            font-size: 16px;
-        }
-        .input-group input:focus { outline: none; border-color: #667eea; }
-        .input-group button {
-            padding: 14px 24px;
-            background: #667eea;
-            color: white;
-            border: none;
-            border-radius: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-        .input-group button:disabled { opacity: 0.6; }
-        
-        #result {
-            background: #f5f5f5;
-            border-radius: 12px;
-            padding: 20px;
-            text-align: center;
-            min-height: 100px;
-            margin-bottom: 20px;
-        }
-        .code {
-            font-size: 28px;
-            font-weight: bold;
-            color: #28a745;
-            letter-spacing: 4px;
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            margin: 10px 0;
-            border: 2px dashed #28a745;
-        }
-        .qr-container {
-            background: white;
-            padding: 10px;
-            border-radius: 8px;
-            display: inline-block;
-        }
-        .qr-container img { width: 180px; height: 180px; }
-        
-        .status { text-align: center; color: #666; font-size: 14px; margin-top: 10px; }
-        .status.online { color: #28a745; }
-        .status.offline { color: #dc3545; }
-        
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 10px auto;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:Inter, Arial, sans-serif;background:#f3f6ff;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+        .card{background:#fff;border-radius:12px;padding:28px;max-width:420px;width:100%;box-shadow:0 10px 30px rgba(18,38,63,.08)}
+        h1{font-size:20px;margin-bottom:8px;color:#0f172a;text-align:center}
+        p.sub{color:#475569;text-align:center;margin-bottom:18px}
+        .input-group{display:flex;gap:10px;margin-bottom:16px}
+        input[type="text"]{flex:1;padding:12px;border:1px solid #e6edf3;border-radius:8px;font-size:15px}
+        button.primary{background:#2563eb;color:#fff;border:none;padding:12px 16px;border-radius:8px;cursor:pointer;font-weight:600}
+        button.primary[disabled]{opacity:.6;cursor:default}
+        #result{background:#f8fafc;border-radius:8px;padding:16px;min-height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+        .code{font-size:34px;font-weight:700;color:#0b6b2b;letter-spacing:6px;background:#fff;padding:10px 18px;border-radius:8px;border:2px dashed #d1fae5;margin:8px 0}
+        .note{font-size:13px;color:#64748b}
+        .status{margin-top:12px;text-align:center;font-size:13px}
+        .spinner{border:4px solid #f3f3f3;border-top:4px solid #2563eb;border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:8px}
+        @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+        .error{color:#b91c1c;font-weight:600}
     </style>
 </head>
 <body>
     <div class="card">
-        <h1>🤖 WhatsApp Bot</h1>
-        <p class="sub">Pilih metode pairing</p>
-
-        <div class="method-selector">
-            <button class="method-btn active" id="btnPairing" onclick="setMethod('pairing')">🔑 Pairing Code</button>
-            <button class="method-btn" id="btnQR" onclick="setMethod('qr')">📱 QR Code</button>
-        </div>
+        <h1>🔑 Dapatkan Pairing Code</h1>
+        <p class="sub">Masukkan nomor WhatsApp (format internasional, contoh: 6281234567890)</p>
 
         <div class="input-group">
-            <input type="text" id="phone" placeholder="6281234567890" maxlength="15">
-            <button id="btn" onclick="request()">🔑 Get Code</button>
+            <input id="phone" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="6281234567890" maxlength="20" />
+            <button id="btn" class="primary" onclick="requestCode()">Dapatkan</button>
         </div>
 
         <div id="result">
-            <div style="color:#888;">Pilih metode dan masukkan nomor HP</div>
+            <div class="note">Hanya menampilkan pairing code. Setelah muncul, buka WhatsApp → Linked Devices → Link a device → Enter code.</div>
         </div>
 
-        <div class="status" id="status">⏳ Menunggu...</div>
+        <div class="status" id="status">Memeriksa status...</div>
     </div>
 
-    <script>
-        let currentMethod = 'pairing';
-        let isPairing = false;
+<script>
+    const phoneEl = document.getElementById('phone');
+    const btn = document.getElementById('btn');
+    const resultEl = document.getElementById('result');
+    const statusEl = document.getElementById('status');
+    let isProcessing = false;
 
-        function setMethod(method) {
-            currentMethod = method;
-            document.getElementById('btnPairing').className = 'method-btn' + (method === 'pairing' ? ' active' : '');
-            document.getElementById('btnQR').className = 'method-btn' + (method === 'qr' ? ' active' : '');
-            
-            const btn = document.getElementById('btn');
-            btn.innerHTML = method === 'pairing' ? '🔑 Get Code' : '📱 Get QR';
-        }
+    phoneEl.addEventListener('input', () => {
+        phoneEl.value = phoneEl.value.replace(/\D/g, '');
+    });
 
-        async function request() {
-            if (isPairing) return;
-            
-            const phone = document.getElementById('phone').value.trim();
-            if (!phone) {
-                alert('Masukkan nomor HP!');
-                return;
+    phoneEl.addEventListener('keypress', (e) => { if (e.key === 'Enter') requestCode(); });
+
+    async function requestCode(){
+        if (isProcessing) return;
+        const phone = phoneEl.value.trim();
+        if (!phone){ alert('Masukkan nomor HP terlebih dahulu'); return; }
+        if (phone.length < 8){ alert('Nomor terlalu pendek'); return; }
+
+        isProcessing = true;
+        btn.disabled = true; btn.textContent = 'Meminta...';
+        resultEl.innerHTML = '<div class="spinner"></div><div class="note" style="margin-top:8px">Meminta pairing code...</div>';
+
+        try{
+            const res = await fetch('/api/pair', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone })
+            });
+            const data = await res.json();
+
+            if (res.ok && data.success && data.code){
+                // show only code
+                resultEl.innerHTML = `
+                    <div style="font-size:32px;color:#0f5132">Kode berhasil dibuat</div>
+                    <div class="code">${escapeHtml(data.code)}</div>
+                    <div class="note">Salin kode dan masukkan di WhatsApp (Linked Devices → Link a device → Enter code). Kode mungkin hanya berlaku singkat.</div>
+                `;
+                // try copy
+                try{ await navigator.clipboard.writeText(data.code); }catch(e){}
+                statusEl.textContent = 'Kode siap — segera masukkan di WhatsApp';
+            } else {
+                const errMsg = data && (data.error || data.message) ? (data.error || data.message) : 'Gagal mengambil pairing code';
+                resultEl.innerHTML = `<div class="error">${escapeHtml(errMsg)}</div>`;
+                statusEl.textContent = 'Gagal';
             }
-            if (phone.length < 10) {
-                alert('Nomor tidak valid!');
-                return;
-            }
-
-            isPairing = true;
-            const btn = document.getElementById('btn');
-            btn.disabled = true;
-            btn.innerHTML = '⏳ Loading...';
-
-            const result = document.getElementById('result');
-            result.innerHTML = '<div class="spinner"></div><div style="color:#888;margin-top:10px;">Meminta...</div>';
-
-            try {
-                const res = await fetch('/api/pair', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: phone, method: currentMethod })
-                });
-                const data = await res.json();
-
-                if (data.success && data.code) {
-                    result.innerHTML = `
-                        <div style="font-size:44px;">✅</div>
-                        <div class="code">${data.code}</div>
-                        <div style="color:#666;font-size:13px;">Kode valid 60 detik!</div>
-                    `;
-                    document.getElementById('status').textContent = '🟢 Kode siap!';
-                    document.getElementById('status').className = 'status online';
-                    try { navigator.clipboard.writeText(data.code); } catch(e) {}
-                } else if (data.success && data.qr) {
-                    result.innerHTML = `
-                        <div style="font-size:44px;">📱</div>
-                        <div class="qr-container">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(data.qr)}" alt="QR Code" />
-                        </div>
-                        <div style="color:#666;font-size:13px;">Scan QR di WhatsApp</div>
-                    `;
-                    document.getElementById('status').textContent = '📱 Scan QR Code!';
-                    document.getElementById('status').className = 'status online';
-                } else if (data.success && data.message) {
-                    result.innerHTML = `<div style="font-size:44px;">✅</div><div style="font-weight:bold;">${data.message}</div>`;
-                } else {
-                    result.innerHTML = `<div style="font-size:44px;">❌</div><div style="color:#dc3545;">${data.error || 'Gagal!'}</div>`;
-                }
-            } catch (e) {
-                result.innerHTML = `<div style="font-size:44px;">❌</div><div style="color:#dc3545;">${e.message}</div>`;
-            }
-
-            isPairing = false;
-            btn.disabled = false;
-            btn.innerHTML = currentMethod === 'pairing' ? '🔑 Get Code' : '📱 Get QR';
+        }catch(err){
+            resultEl.innerHTML = `<div class="error">${escapeHtml(err.message || String(err))}</div>`;
+            statusEl.textContent = 'Gagal';
+        } finally {
+            isProcessing = false;
+            btn.disabled = false; btn.textContent = 'Dapatkan';
         }
+    }
 
-        document.getElementById('phone').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') request();
-        });
-        document.getElementById('phone').addEventListener('input', function() {
-            this.value = this.value.replace(/\D/g, '');
-        });
+    function escapeHtml(s){ if(!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
 
-        async function checkStatus() {
-            try {
-                const res = await fetch('/api/status');
-                const data = await res.json();
-                const el = document.getElementById('status');
-                if (data.status === 'connected') {
-                    el.textContent = '🟢 Online';
-                    el.className = 'status online';
-                } else {
-                    el.textContent = '🔴 Offline';
-                    el.className = 'status offline';
-                }
-            } catch(e) {}
+    async function checkStatus(){
+        try{
+            const res = await fetch('/api/status');
+            if (!res.ok) throw new Error('No status');
+            const data = await res.json();
+            if (data.status === 'connected'){
+                statusEl.textContent = `🟢 Online — Bot: ${data.botNumber || '-'} `;
+            } else {
+                statusEl.textContent = '🔴 Offline — belum terhubung';
+            }
+        }catch(e){
+            statusEl.textContent = '🔴 Offline';
         }
-        setInterval(checkStatus, 5000);
-        checkStatus();
-    </script>
+    }
+
+    setInterval(checkStatus, 5000);
+    checkStatus();
+</script>
 </body>
 </html>
